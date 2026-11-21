@@ -9,13 +9,13 @@ test('KST daily slot crosses UTC date boundary correctly', () => {
 test('three distinct daily slots deduplicate independently and reset on the next Korean date', () => {
   const date = new Date('2026-11-20T15:00:00Z')
   const ids = DAILY_SLOTS.map(slot => scheduledRunId(slot, date))
-  assert.deepEqual(ids, ['daily-2026-11-21-09', 'daily-2026-11-21-13', 'daily-2026-11-21-18'])
+  assert.deepEqual(ids, ['daily-2026-11-21-07', 'daily-2026-11-21-09', 'daily-2026-11-21-19'])
   assert.equal(new Set(ids).size, 3)
-  assert.equal(scheduledRunId(13, date), ids[1])
+  assert.equal(scheduledRunId(9, date), ids[1])
   assert.equal(scheduledRunId(9, new Date('2026-11-21T15:00:00Z')), 'daily-2026-11-22-09')
   assert.throws(() => scheduledRunId(12, date))
 })
-test('deployed UTC cron schedules map to 09, 13 and 18 KST on separate daily routes', () => {
+test('deployed UTC cron schedules map to 07, 09 and 19 KST on separate daily routes', () => {
   const config = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'))
   const jobs = config.crons.filter(job => job.path.startsWith('/api/cron/automation'))
   assert.equal(jobs.length, 3)

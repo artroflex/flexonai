@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { bodyLengthAccepted } from '@/lib/automation/article'
-import { DEFAULT_SETTINGS, NEWS_TOPIC_PRESETS, kstDate, pcRecentlySeen, publishingBlockers, type AutomationJob, type AutomationSettings } from '@/lib/automation/rules'
+import { DAILY_SCHEDULE_LABEL, DEFAULT_SETTINGS, NEWS_TOPIC_PRESETS, kstDate, pcRecentlySeen, publishingBlockers, type AutomationJob, type AutomationSettings } from '@/lib/automation/rules'
 
 type Settings = Omit<AutomationSettings, 'tokenHash'> & { connected?: boolean }
 const labels: Record<string, string> = { generating: '뉴스·GEO 글 생성 중', queued: '네이버 전송 대기', working: '네이버 처리 중', draft_saved: '첫 연결 임시저장 완료', published: '공개 발행 완료', failed: '작업 종료', needs_review: '네이버 결과 확인 필요', skipped: '새로운 근거 부족 · 건너뜀' }
@@ -73,7 +73,7 @@ export default function PublishingWorkspace() {
     </section>
     {message && <div role="status" className="mb-6 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm leading-6 text-orange-900">{message}</div>}
     <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="발행 현황">{[
-      ['발행 일정', '09시 · 13시 · 18시', '한국 시간 · 매회 1건'],
+      ['발행 일정', DAILY_SCHEDULE_LABEL, '한국 시간 · 매회 1건'],
       ['오늘 공개 발행', `${jobs.filter(j => j.status === 'published' && kstDate(new Date(j.updatedAt)) === kstDate(new Date(checkedAt))).length}건`, '확인된 네이버 발행 결과'],
       ['전송 대기', `${jobs.filter(j => j.status === 'queued').length}건`, 'PC 연결 후 순서대로 처리'],
       ['PC 응답 상태', pcOnline ? '최근 응답 있음' : '연결 확인 필요', 'PC·크롬·네이버 로그인 유지'],

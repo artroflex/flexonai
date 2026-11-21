@@ -1,9 +1,9 @@
 {
   "framework": "nextjs",
   "crons": [
+    { "path": "/api/cron/automation/7", "schedule": "0 22 * * *" },
     { "path": "/api/cron/automation", "schedule": "0 0 * * *" },
-    { "path": "/api/cron/automation/13", "schedule": "0 4 * * *" },
-    { "path": "/api/cron/automation/18", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/automation/19", "schedule": "0 10 * * *" },
     { "path": "/api/cron/cleanup-images", "schedule": "0 18 * * *" }
   ]
 }

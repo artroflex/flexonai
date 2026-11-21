@@ -66,7 +66,8 @@ export function parseSettings(input: unknown, previous: AutomationSettings): Aut
 export function kstDate(now = new Date()): string {
   return new Date(now.getTime() + 9 * 3600000).toISOString().slice(0, 10)
 }
-export const DAILY_SLOTS = [9, 13, 18] as const
+export const DAILY_SLOTS = [7, 9, 19] as const
+export const DAILY_SCHEDULE_LABEL = DAILY_SLOTS.map(slot => `${String(slot).padStart(2, '0')}시`).join(' · ')
 export function scheduledRunId(slot: number, now = new Date()): string {
   if (!(DAILY_SLOTS as readonly number[]).includes(slot)) throw new Error('지원하지 않는 예약 시간입니다.')
   return `daily-${kstDate(now)}-${String(slot).padStart(2, '0')}`
