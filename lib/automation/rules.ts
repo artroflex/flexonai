@@ -32,7 +32,7 @@ export interface AutomationJob {
 }
 export const DEFAULT_SETTINGS: AutomationSettings = {
   enabled: false, blogId: 'srluxury17', category: '연예뉴스',
-  topic: '연예 (컴백 OR 신곡 OR 공연) (공식 OR 발표)', provider: 'gemini', mode: 'draft',
+  topic: '연예 (컴백 OR 신곡 OR 공연) (공식 OR 발표)', provider: 'openai', mode: 'draft',
   verifiedDraftAt: null, tokenHash: null, workerLastSeenAt: null,
 }
 export function parseSettings(input: unknown, previous: AutomationSettings): AutomationSettings {
