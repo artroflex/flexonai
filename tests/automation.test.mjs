@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { DEFAULT_SETTINGS, parseSettings, kstDate, escapeHtml, isPublicLink, isPublishedUrl, validateResult, scheduledRunId, DAILY_SLOTS, blocksGeneration, sectionSourceIds, pcRecentlySeen, publishingBlockers } from '../lib/automation/rules.ts'
+import { DEFAULT_SETTINGS, parseSettings, resolvePublishHours, scheduleLabel, SUBJECT_PRESETS, kstDate, escapeHtml, isPublicLink, isPublishedUrl, validateResult, scheduledRunId, DAILY_SLOTS, blocksGeneration, sectionSourceIds, pcRecentlySeen, publishingBlockers } from '../lib/automation/rules.ts'
 test('KST daily slot crosses UTC date boundary correctly', () => {
   assert.equal(kstDate(new Date('2026-11-20T15:00:00Z')), '2026-11-21')
   assert.equal(kstDate(new Date('2026-11-20T14:59:59Z')), '2026-11-20')
@@ -13,15 +13,33 @@ test('three distinct daily slots deduplicate independently and reset on the next
   assert.equal(new Set(ids).size, 3)
   assert.equal(scheduledRunId(9, date), ids[1])
   assert.equal(scheduledRunId(9, new Date('2026-11-21T15:00:00Z')), 'daily-2026-11-22-09')
-  assert.throws(() => scheduledRunId(12, date))
+  for (const invalid of [-1, 24, 1.5, '7']) assert.throws(() => scheduledRunId(invalid, date))
 })
-test('deployed UTC cron schedules map to 07, 09 and 19 KST on separate daily routes', () => {
+test('daily UTC cron routes cover every selectable Korean hour exactly once', () => {
   const config = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'))
   const jobs = config.crons.filter(job => job.path.startsWith('/api/cron/automation'))
-  assert.equal(jobs.length, 3)
-  assert.equal(new Set(jobs.map(job => job.path)).size, 3)
-  assert.deepEqual(jobs.map(job => (Number(job.schedule.split(' ')[1]) + 9) % 24), DAILY_SLOTS)
-  for (const job of jobs) assert.match(job.schedule, /^0 \d+ \* \* \*$/)
+  assert.equal(jobs.length, 24)
+  assert.equal(new Set(jobs.map(job => job.path)).size, 24)
+  assert.deepEqual(jobs.map(job => (Number(job.schedule.split(' ')[1]) + 9) % 24), Array.from({ length: 24 }, (_, h) => h))
+  for (const job of jobs) {
+    assert.match(job.schedule, /^0 \d+ \* \* \*$/)
+    const slot = job.path === '/api/cron/automation' ? 9 : Number(job.path.split('/').at(-1))
+    assert.equal((Number(job.schedule.split(' ')[1]) + 9) % 24, slot)
+  }
+})
+
+test('each account saves its own topic, tone and schedule with safe legacy defaults', () => {
+  const previous = { ...DEFAULT_SETTINGS, blogId: 'my_blog' }
+  const saved = parseSettings({ ...previous, subject: 'sports', tone: 'friendly', publishHours: [22, 0] }, previous)
+  assert.equal(saved.subject, 'sports')
+  assert.equal(saved.tone, 'friendly')
+  assert.deepEqual(saved.publishHours, [0, 22])
+  assert.deepEqual(previous.publishHours, [7, 9, 19])
+  assert.equal(SUBJECT_PRESETS[0].id, 'entertainment')
+  assert.deepEqual(resolvePublishHours(undefined), [7, 9, 19])
+  assert.equal(scheduleLabel([19, 7]), '07시 · 19시')
+  for (const publishHours of [[], [7, 7], [24], [-1], ['9'], [1, 2, 3, 4]]) assert.throws(() => parseSettings({ ...previous, publishHours }, previous))
+  for (const settings of [{ subject: 'bad' }, { tone: 'bad' }]) assert.throws(() => parseSettings({ ...previous, ...settings }, previous))
 })
 test('offline PC may accumulate scheduled drafts, but uncertain results stop further generation', () => {
   assert.equal(blocksGeneration('queued', true), false)

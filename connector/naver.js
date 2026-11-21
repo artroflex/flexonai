@@ -12,12 +12,12 @@
     while (Date.now() < until) { const value = probe(); if (value) return value; await new Promise(r => setTimeout(r, 250)) }
     throw new Error('네이버 화면의 처리 완료를 확인하지 못했습니다.')
   }
-  function insert(node, value) {
+  function insert(node, value, html = null) {
     node.focus()
     const selection = window.getSelection(), range = document.createRange()
     range.selectNodeContents(node); selection.removeAllRanges(); selection.addRange(range)
-    if (!document.execCommand('insertText', false, value)) throw new Error('편집기가 텍스트 입력을 받지 않았습니다.')
-    node.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }))
+    if (!document.execCommand(html ? 'insertHTML' : 'insertText', false, html || value)) throw new Error('편집기가 본문 입력을 받지 않았습니다.')
+    node.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: html ? 'insertFromPaste' : 'insertText', data: value }))
   }
   async function run(task, image) {
     try {
@@ -34,13 +34,14 @@
       const images = typeof image === 'string' ? [{ url: plannedImages[0] || null, data: image }] : image || []
       if (plannedImages.length && (images.length !== plannedImages.length || plannedImages.some(url => !images.some(img => img.url === url)))) throw new Error('본문 이미지가 모두 전달되지 않았습니다. 최신 연결 도구를 설치해 주세요.')
       const flow = []
-      let lines = []
-      function flush() { if (lines.length) { flow.push({ type: 'text', value: lines.join('\n\n') }); lines = [] } }
-      for (const el of parsed.querySelectorAll('p,h2,figcaption,img')) {
+      let lines = [], markup = []
+      function flush() { if (lines.length) { flow.push({ type: 'text', value: lines.join('\n\n'), html: markup.join('') }); lines = []; markup = [] } }
+      for (const el of parsed.querySelectorAll('p,h2,blockquote,figcaption,img')) {
+        if (el.parentElement?.closest('blockquote')) continue
         if (el.tagName === 'IMG') { flush(); flow.push({ type: 'image', url: el.getAttribute('src') }); continue }
         const links = Array.from(el.querySelectorAll('a')).map(a => a.getAttribute('href')).filter(href => /^https:\/\//.test(href || ''))
         const line = [el.textContent.trim(), ...links].filter(Boolean).join('\n')
-        if (line) lines.push(line)
+        if (line) { lines.push(line); markup.push(el.outerHTML) }
       }
       flush()
       // Legacy one-image jobs without an HTML image node are still supported.
@@ -50,7 +51,7 @@
       let textWritten = false, lastImage = null, uploadedCount = 0
       for (const block of flow) {
         if (block.type === 'text') {
-          if (!textWritten) { insert(body, block.value); textWritten = true }
+          if (!textWritten) { insert(body, block.value, block.html); textWritten = true }
           else {
             const paragraph = await waitFor(() => {
               const list = Array.from(document.querySelectorAll('.se-component.se-text .se-text-paragraph, .se-text:not(.se-title-text) .se-text-paragraph'))
@@ -60,8 +61,8 @@
             paragraph.focus()
             const selection = window.getSelection(), range = document.createRange()
             range.selectNodeContents(paragraph); range.collapse(false); selection.removeAllRanges(); selection.addRange(range)
-            if (!document.execCommand('insertText', false, (text(paragraph) ? '\n\n' : '') + block.value)) throw new Error('이미지 뒤 본문을 입력하지 못했습니다.')
-            paragraph.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: block.value }))
+            if (!document.execCommand('insertHTML', false, (text(paragraph) ? '<p><br/></p>' : '') + block.html)) throw new Error('이미지 뒤 서식 본문을 입력하지 못했습니다.')
+            paragraph.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: block.value }))
           }
           await waitFor(() => document.body.innerText.includes(block.value.split('\n')[0]))
         } else {

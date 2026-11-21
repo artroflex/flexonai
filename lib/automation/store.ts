@@ -19,7 +19,7 @@ export async function writeObject(path: string, value: unknown, createOnly = fal
   if (error) throw new Error(createOnly ? '다른 작업이 진행 중이거나 이미 처리한 실행입니다.' : '자동화 데이터를 저장하지 못했습니다.')
 }
 export async function getSettings(userId: string) {
-  return await readObject<AutomationSettings>(`${userId}/settings.json`) ?? { ...DEFAULT_SETTINGS }
+  return { ...DEFAULT_SETTINGS, ...await readObject<AutomationSettings>(`${userId}/settings.json`) }
 }
 export async function saveSettings(userId: string, settings: AutomationSettings) { await writeObject(`${userId}/settings.json`, settings) }
 export async function getJob(userId: string, id: string) {

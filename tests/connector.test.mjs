@@ -42,6 +42,20 @@ test('existing user draft and wrong account fail closed without changing text', 
     assert.equal(await page.evaluate(() => window.finalClicks), 0)
   })
 })
+
+test('red headings, short paragraphs, quote blocks and small sources retain rich formatting', async () => {
+  await browserPage(async page => {
+    const contentHtml = '<h2 style="color:#C62828;font-size:24px;font-weight:700">확인된 소식</h2><p style="font-size:19px">첫 문장이에요.<br/>다음 문장이에요.</p><blockquote style="border-left:4px solid #C62828"><p>실제 발언입니다.</p><p style="font-size:11px">— 발언자</p></blockquote><p>#소식</p><p style="font-size:11px;line-height:1.2;color:#777777">출처</p>'
+    const result = await page.evaluate(task => globalThis.artroNaver.run(task, null), { ...task, contentHtml })
+    assert.equal(result.status, 'draft_saved', result.error)
+    assert.equal(await page.locator('.se-component h2').evaluate(el => getComputedStyle(el).color), 'rgb(198, 40, 40)')
+    assert.equal(await page.locator('.se-component h2').evaluate(el => getComputedStyle(el).fontSize), '24px')
+    assert.equal(await page.locator('.se-component blockquote').count(), 1)
+    assert.equal(await page.locator('.se-component blockquote').innerText().then(t => (t.match(/실제 발언입니다/g) || []).length), 1)
+    assert.equal(await page.locator('.se-component p').filter({ hasText: /^출처$/ }).evaluate(el => getComputedStyle(el).fontSize), '11px')
+    assert.equal(await page.evaluate(() => window.finalClicks), 0)
+  })
+})
 test('unknown image upload UI stops before saving or publishing', async () => {
   await browserPage(async page => {
     const result = await page.evaluate(task => globalThis.artroNaver.run(task, 'aGVsbG8='), task)

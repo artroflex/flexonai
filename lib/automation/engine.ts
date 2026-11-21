@@ -5,9 +5,10 @@ import { generateContentJson } from '@/utils/ai/contentJson'
 import { resolveContentModel } from '@/utils/ai/contentModels'
 import { resolveApiKey } from '@/utils/apiKeys'
 import { createAdminClient } from '@/utils/supabase/admin'
-import { escapeHtml, isPublicLink, kstDate, scheduledRunId, blocksGeneration, DEFAULT_NEWS_TOPIC, NEWS_TOPIC_PRESETS, type AutomationJob, type AutomationSettings } from './rules'
+import { isPublicLink, scheduledRunId, resolvePublishHours, blocksGeneration, DEFAULT_NEWS_TOPIC, NEWS_TOPIC_PRESETS, SUBJECT_PRESETS, TONE_PRESETS, type AutomationJob, type AutomationSettings } from './rules'
+import { renderNewsHtml } from './render'
 import { mergeNewsPools } from './newsSelection'
-import { bodyLengthAccepted, parseNewsDraft, resolveNewsImageCount, imageSectionIndices, NEWS_EDITORIAL_PROMPT, NEWS_GROUNDING_PROMPT, type NewsDraft } from './article'
+import { bodyLengthAccepted, parseNewsDraft, resolveNewsImageCount, editorialPrompt, NEWS_GROUNDING_PROMPT, validateNewsQuotes, type NewsDraft } from './article'
 import { generateNewsImages } from './images'
 import { getSettings, listJobs, saveJob, withUserLock, writeObject } from './store'
 
@@ -30,8 +31,8 @@ async function buildPost(userId: string, settings: AutomationSettings, job: Auto
   const context = fresh.slice(0, 30).map((a, i) => ({ id: i, title: a.title, snippet: a.snippet, source: a.source, date: a.pubDate }))
   const textSignal = AbortSignal.timeout(100000)
   const generate = (revision?: unknown) => generateContentJson({
-    provider: settings.provider, apiKey: key, model: resolveContentModel(settings.provider, undefined), system: NEWS_EDITORIAL_PROMPT,
-    user: JSON.stringify({ date: new Date().toISOString(), category: settings.category, articles: context, ...(revision ? { revision } : {}) }),
+    provider: settings.provider, apiKey: key, model: resolveContentModel(settings.provider, undefined), system: editorialPrompt(settings.subject ?? 'entertainment', TONE_PRESETS.find(t => t.id === settings.tone)?.instruction ?? TONE_PRESETS[0].instruction),
+    user: JSON.stringify({ date: new Date().toISOString(), subject: SUBJECT_PRESETS.find(s => s.id === settings.subject)?.label ?? '연예뉴스', tone: settings.tone ?? 'natural', category: settings.category, articles: context, ...(revision ? { revision } : {}) }),
     signal: textSignal,
   })
   const audit = (draft: NewsDraft) => generateContentJson({
@@ -51,6 +52,7 @@ async function buildPost(userId: string, settings: AutomationSettings, job: Auto
   if (!bodyLengthAccepted(draft.bodyChars)) { job.status = 'skipped'; job.error = `본문 ${draft.bodyChars}자로 1,500~2,000자 기준을 충족하지 않아 발행하지 않았습니다.`; return }
   if (assessment.supported !== true) { job.status = 'skipped'; job.error = '분량을 늘리는 과정에서 출처로 확인되지 않는 설명이 남아 발행하지 않았습니다.'; return }
   const { title, intro, sourceIds: ids } = draft
+  validateNewsQuotes(draft, context)
   const sources = ids.map(i => fresh[i])
   if (new Set(sources.map(a => a.source)).size < 2) throw new Error('서로 다른 매체의 출처가 2개 이상 필요합니다.')
   const fingerprint = crypto.createHash('sha256').update(title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')).digest('hex')
@@ -59,21 +61,14 @@ async function buildPost(userId: string, settings: AutomationSettings, job: Auto
   const images = await generateNewsImages(userId, job.id, imageKey, draft, imageCount)
   if (images.length !== imageCount) throw new Error('설정한 이미지 수를 충족하지 못했습니다.')
   job.imageUrl = images[0]; job.imageUrls = images; job.bodyCharCount = draft.bodyChars
-  const figure = (url: string, caption: string) => `<figure><img src="${escapeHtml(url)}" alt="${escapeHtml(caption)} · AI 제작 참고 일러스트"/><figcaption>${escapeHtml(caption)} · AI 제작 일러스트, 실제 인물·현장 사진이 아닙니다.</figcaption></figure>`
-  const placement = new Map(imageSectionIndices(imageCount).map((sectionIndex, i) => [sectionIndex, images[i + 1]]))
-  const sections = draft.sections.map((section, index) => {
-    return `<h2>${escapeHtml(section.heading)}</h2>${section.paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('')}${placement.has(index) ? figure(placement.get(index)!, section.heading) : ''}`
-  }).join('')
-  const tags = [...new Set(draft.tags.map(t => '#' + t.replace(/[^가-힣a-zA-Z0-9]/g, '')).filter(t => t.length > 1))]
-  if (!tags.length) tags.push('#연예뉴스', '#연예소식')
-  job.contentHtml = `<h2>핵심 요약</h2><p>${escapeHtml(intro)}</p><p><small>정리 기준: <time datetime="${new Date().toISOString()}">${kstDate()} (한국 시간)</time> · artroBLOG AI 초안</small></p>${figure(images[0], title)}${sections}<p>공개된 기사 제목·요약을 AI로 정리했습니다. 자세한 맥락은 아래 원문에서 확인해 주세요.</p><p>${escapeHtml(tags.join(' '))}</p><h2>출처</h2>${sources.map((a, index) => `<p>${index + 1}. <a href="${escapeHtml(a.link)}">${escapeHtml(a.source)} · ${escapeHtml(a.title)}</a> (${kstDate(new Date(a.pubDate))})</p>`).join('')}`
+  job.contentHtml = renderNewsHtml(draft, images, sources, SUBJECT_PRESETS.find(s => s.id === settings.subject)?.label ?? '연예뉴스')
   // Keep the existing post editor and archive useful for automated articles, too.
   const { data: post, error } = await db.from('blog_posts').insert({ user_id: userId, title, content: job.contentHtml, excerpt: intro.slice(0, 160), reading_minutes: Math.max(3, Math.ceil(draft.bodyChars / 500)) }).select('id').single()
   if (error || !post) throw new Error('생성한 글을 게시글 관리에 저장하지 못했습니다.')
   const { data: category } = await db.from('blog_categories').select('id').eq('user_id', userId).eq('name', settings.category).maybeSingle()
   let categoryId = category?.id
   if (!categoryId) {
-    const { data: created, error: catError } = await db.from('blog_categories').insert({ user_id: userId, name: settings.category, slug: `news-${userId.slice(0, 8)}`, sort_order: 100 }).select('id').single()
+    const { data: created, error: catError } = await db.from('blog_categories').insert({ user_id: userId, name: settings.category, slug: `news-${crypto.createHash('sha256').update(settings.category).digest('hex').slice(0, 12)}`, sort_order: 100 }).select('id').single()
     if (catError) throw new Error('글은 저장했지만 카테고리를 연결하지 못했습니다. 게시글 관리에서 확인해 주세요.')
     categoryId = created?.id
   }
@@ -83,7 +78,7 @@ async function buildPost(userId: string, settings: AutomationSettings, job: Auto
 export async function generateJob(userId: string, scheduled = false, slot = 9) {
   return withUserLock(userId, async () => {
     const settings = await getSettings(userId)
-    if (scheduled && !settings.enabled) return null
+    if (scheduled && (!settings.enabled || !resolvePublishHours(settings.publishHours).includes(slot))) return null
     if (!settings.blogId) throw new Error('먼저 발행할 내 네이버 블로그 ID를 저장해 주세요.')
     const history = await listJobs(userId)
     if (history.some(j => blocksGeneration(j.status, scheduled))) throw new Error('진행 중이거나 확인이 필요한 작업이 있습니다. 먼저 결과를 확인해 주세요.')

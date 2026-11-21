@@ -6,7 +6,7 @@ async function config() {
   return c
 }
 async function api(c, body) {
-  const res = await fetch(`${API_ORIGIN}/api/automation/worker`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.token}` }, body: JSON.stringify({ ...body, capabilities: ['interleaved-images-v1'] }), signal: AbortSignal.timeout(25000) })
+  const res = await fetch(`${API_ORIGIN}/api/automation/worker`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.token}` }, body: JSON.stringify({ ...body, capabilities: ['interleaved-images-v1', 'rich-text-v1'] }), signal: AbortSignal.timeout(25000) })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || `서버 오류 ${res.status}`)
   return data

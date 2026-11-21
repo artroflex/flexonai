@@ -36,6 +36,7 @@ export async function POST(request: Request) {
         if (jobs.some(j => ['working', 'needs_review'].includes(j.status))) return privateJson({ task: null })
         const job = jobs.filter(j => j.status === 'queued').sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]
         if (!job) return privateJson({ task: null })
+        if (job.contentHtml.includes('color:#C62828') && (!Array.isArray(input.capabilities) || !input.capabilities.includes('rich-text-v1'))) throw new Error('빨간 소제목·인용구 서식을 유지하려면 크롬 연결 도구 v1.2.0 이상으로 업데이트해 주세요.')
         if ((job.imageUrls?.length || 0) > 1 && (!Array.isArray(input.capabilities) || !input.capabilities.includes('interleaved-images-v1'))) throw new Error('이미지 여러 장을 전송하려면 최신 크롬 연결 도구 v1.1.0 이상으로 업데이트해 주세요.')
         // Pausing blocks pending scheduled work; manual draft connection tests remain available.
         if (!current.enabled && job.id.startsWith('daily-')) return privateJson({ task: null })

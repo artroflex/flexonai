@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseNewsDraft, countNewsBody, bodyLengthAccepted, imageSectionIndices, resolveNewsImageCount } from '../lib/automation/article.ts'
+import { parseNewsDraft, countNewsBody, bodyLengthAccepted, imageSectionIndices, resolveNewsImageCount, validateNewsQuotes, editorialPrompt } from '../lib/automation/article.ts'
+import { renderNewsHtml } from '../lib/automation/render.ts'
 import { mergeNewsPools } from '../lib/automation/newsSelection.ts'
 
 function fixture() {
@@ -36,6 +37,25 @@ test('four distinct sections with valid source references are required before bu
   assert.throws(() => parseNewsDraft({ ...draft, sections: draft.sections.map(s => ({ ...s, sourceIds: [99] })) }, 2))
   assert.throws(() => parseNewsDraft({ ...draft, sourceIds: [0] }, 2))
   assert.throws(() => parseNewsDraft({ ...draft, sections: draft.sections.map(s => ({ ...s, paragraphs: ['한 문단만'] })) }, 2))
+})
+
+test('only verbatim sourced quotes render, with red headings and compact sources after hashtags', () => {
+  const raw = { ...fixture(), quotes: [{ text: '공식 발표입니다.', speaker: '김가수', sourceId: 0, sectionIndex: 0 }] }
+  const draft = parseNewsDraft(raw, 2)
+  const articles = [{ title: '김가수 발표', snippet: '김가수는 “공식 발표입니다.”라고 밝혔다.' }, { title: '다른 기사', snippet: '' }]
+  assert.doesNotThrow(() => validateNewsQuotes(draft, articles))
+  assert.throws(() => validateNewsQuotes(draft, [{ title: '김가수', snippet: '다른 발언' }]))
+  assert.throws(() => parseNewsDraft({ ...raw, quotes: [{ ...raw.quotes[0], sourceId: 1 }] }, 2))
+  const html = renderNewsHtml(draft, ['https://example.com/1.png', 'https://example.com/2.png', 'https://example.com/3.png', 'https://example.com/4.png'], [{ source: '매체', title: '<script>뉴스</script>', link: 'https://example.com/news', pubDate: '2026-11-21' }], '스포츠')
+  assert.match(html, /<blockquote/)
+  assert.match(html, /font-size:24px;font-weight:700;color:#C62828/)
+  assert.match(html, /font-size:19px/)
+  assert.match(html, /font-size:11px;line-height:1.2;color:#777777/)
+  assert.equal((html.match(/<img /g) || []).length, 4)
+  assert.ok(html.indexOf('#신곡') < html.indexOf('>출처</p>'))
+  assert.ok(!html.includes('<script>'))
+  assert.match(editorialPrompt('sports', '정보 전달형'), /이 실행의 말투 선택: 정보 전달형/)
+  assert.ok(!editorialPrompt('sports', '정보 전달형').includes('한국어 연예 블로그 에디터'))
 })
 
 test('a busy news category cannot crowd out other categories, and duplicate links use one slot', () => {
