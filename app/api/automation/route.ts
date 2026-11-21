@@ -3,7 +3,8 @@ import { checkProgramAccessApi } from '@/utils/access'
 import { privateJson } from '@/utils/privateResponse'
 import { generateJob } from '@/lib/automation/engine'
 import { getSettings, getJob, listJobs, saveJob, saveSettings, withUserLock } from '@/lib/automation/store'
-import { parseSettings } from '@/lib/automation/rules'
+import { parseSettings, publishingBlockers } from '@/lib/automation/rules'
+import { createAdminClient } from '@/utils/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -11,9 +12,10 @@ export async function GET() {
   const access = await checkProgramAccessApi()
   if (!access.allowed) return privateJson({ error: access.error }, { status: access.status })
   try {
-    const [settings, jobs] = await Promise.all([getSettings(access.user.id), listJobs(access.user.id)])
+    const [settings, jobs, keys] = await Promise.all([getSettings(access.user.id), listJobs(access.user.id), createAdminClient().from('user_api_keys').select('provider').eq('user_id', access.user.id)])
+    if (keys.error) throw new Error('API 키 등록 상태를 확인하지 못했습니다.')
     const { tokenHash, ...safe } = settings
-    return privateJson({ settings: { ...safe, connected: !!tokenHash }, jobs })
+    return privateJson({ settings: { ...safe, connected: !!tokenHash }, jobs, configuredProviders: keys.data.map(key => key.provider) })
   } catch { return privateJson({ error: '자동화 저장소를 준비하지 못했습니다. 운영 설정을 확인해 주세요.' }, { status: 503 }) }
 }
 export async function POST(request: Request) {
@@ -28,11 +30,25 @@ export async function POST(request: Request) {
     if (body.action === 'generate') return privateJson({ job: await generateJob(userId) })
     return await withUserLock(userId, async () => {
       const current = await getSettings(userId)
+      if (body.action === 'start') {
+        const { data: key, error } = await createAdminClient().from('user_api_keys').select('provider').eq('user_id', userId).eq('provider', current.provider).maybeSingle()
+        if (error) throw new Error('API 키 등록 상태를 확인하지 못했습니다.')
+        const blockers = publishingBlockers(current, !!key)
+        if (blockers.length) throw new Error(blockers.join(' '))
+        if ((await listJobs(userId)).some(job => job.status === 'needs_review')) throw new Error('확인이 필요한 작업의 네이버 발행 여부를 먼저 확인해 주세요.')
+        await saveSettings(userId, parseSettings({ ...current, enabled: true, mode: 'publish' }, current))
+        return privateJson({ ok: true })
+      }
+      if (body.action === 'pause') {
+        await saveSettings(userId, { ...current, enabled: false, mode: 'draft' })
+        return privateJson({ ok: true })
+      }
       if (body.action === 'save') {
         await saveSettings(userId, parseSettings(body.settings, current))
         return privateJson({ ok: true })
       }
       if (body.action === 'token') {
+        parseSettings(current, current)
         const token = `artro.${userId}.${crypto.randomBytes(32).toString('hex')}`
         await saveSettings(userId, { ...current, tokenHash: crypto.createHash('sha256').update(token).digest('hex'), workerLastSeenAt: null })
         return privateJson({ token })

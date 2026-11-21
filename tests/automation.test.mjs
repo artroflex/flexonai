@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { DEFAULT_SETTINGS, parseSettings, kstDate, escapeHtml, isPublicLink, isPublishedUrl, validateResult, scheduledRunId, DAILY_SLOTS, blocksGeneration, sectionSourceIds } from '../lib/automation/rules.ts'
+import { DEFAULT_SETTINGS, parseSettings, kstDate, escapeHtml, isPublicLink, isPublishedUrl, validateResult, scheduledRunId, DAILY_SLOTS, blocksGeneration, sectionSourceIds, pcRecentlySeen, publishingBlockers } from '../lib/automation/rules.ts'
 test('KST daily slot crosses UTC date boundary correctly', () => {
   assert.equal(kstDate(new Date('2026-11-20T15:00:00Z')), '2026-11-21')
   assert.equal(kstDate(new Date('2026-11-20T14:59:59Z')), '2026-11-20')
@@ -31,7 +31,7 @@ test('offline PC may accumulate scheduled drafts, but uncertain results stop fur
 })
 test('cannot enable publishing without a verified draft; changing target revokes verification', () => {
   assert.throws(() => parseSettings({ ...DEFAULT_SETTINGS, mode: 'publish' }, DEFAULT_SETTINGS))
-  const verified = { ...DEFAULT_SETTINGS, verifiedDraftAt: new Date().toISOString() }
+  const verified = { ...DEFAULT_SETTINGS, blogId: 'srluxury17', verifiedDraftAt: new Date().toISOString() }
   assert.equal(parseSettings({ ...verified, mode: 'publish' }, verified).mode, 'publish')
   assert.throws(() => parseSettings({ ...verified, blogId: 'otherblog', mode: 'publish' }, verified))
   assert.equal(parseSettings({ ...verified, category: '다른 카테고리' }, verified).verifiedDraftAt, null)
@@ -58,4 +58,19 @@ test('GEO paragraph citations cannot invent or use unselected article references
   for (const value of [undefined, [], [1], ['2'], [2, 99], [2.5]]) {
     assert.throws(() => sectionSourceIds(value, [2, 5]))
   }
+})
+
+test('automatic publishing needs an own target, key, recent PC connection and verified draft', () => {
+  const now = Date.parse('2026-11-21T10:00:00Z')
+  const ready = { ...DEFAULT_SETTINGS, blogId: 'my_own_blog', tokenHash: 'fixture', workerLastSeenAt: new Date(now).toISOString(), verifiedDraftAt: new Date(now).toISOString() }
+  assert.deepEqual(publishingBlockers(ready, true, now), [])
+  assert.equal(publishingBlockers(ready, false, now).length, 1)
+  assert.equal(publishingBlockers({ ...ready, tokenHash: null }, true, now).length, 1)
+  assert.equal(publishingBlockers({ ...ready, verifiedDraftAt: null }, true, now).length, 1)
+  assert.equal(publishingBlockers({ ...ready, blogId: '' }, true, now).length, 1)
+  assert.equal(pcRecentlySeen(new Date(now - 180001).toISOString(), now), false)
+  assert.equal(pcRecentlySeen(new Date(now + 60000).toISOString(), now), false)
+  assert.equal(pcRecentlySeen('invalid', now), false)
+  assert.equal(pcRecentlySeen(new Date(now - 60000).toISOString(), now), true)
+  assert.equal(DEFAULT_SETTINGS.blogId, '')
 })

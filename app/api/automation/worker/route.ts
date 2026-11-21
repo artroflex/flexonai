@@ -36,6 +36,8 @@ export async function POST(request: Request) {
         if (jobs.some(j => ['working', 'needs_review'].includes(j.status))) return privateJson({ task: null })
         const job = jobs.filter(j => j.status === 'queued').sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]
         if (!job) return privateJson({ task: null })
+        // Pausing blocks pending scheduled work; manual draft connection tests remain available.
+        if (!current.enabled && job.id.startsWith('daily-')) return privateJson({ task: null })
         if (job.blogId !== current.blogId || job.category !== current.category) { job.status = 'needs_review'; job.error = '대기 중에 발행 대상 설정이 바뀌었습니다.'; await saveJob(userId, job); return privateJson({ task: null }) }
         // Switching publishing off also downgrades already queued work.
         if (job.mode === 'publish' && (current.mode !== 'publish' || !current.verifiedDraftAt)) job.mode = 'draft'

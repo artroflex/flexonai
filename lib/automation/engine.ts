@@ -70,6 +70,7 @@ export async function generateJob(userId: string, scheduled = false, slot = 9) {
   return withUserLock(userId, async () => {
     const settings = await getSettings(userId)
     if (scheduled && !settings.enabled) return null
+    if (!settings.blogId) throw new Error('먼저 발행할 내 네이버 블로그 ID를 저장해 주세요.')
     const history = await listJobs(userId)
     if (history.some(j => blocksGeneration(j.status, scheduled))) throw new Error('진행 중이거나 확인이 필요한 작업이 있습니다. 먼저 결과를 확인해 주세요.')
     // One run per KST date AND slot. Failed runs also retain their marker.

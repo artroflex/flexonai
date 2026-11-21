@@ -41,7 +41,7 @@ export default function AuthForm() {
           {APP_TITLE}
         </Link>
         <p className="text-sm font-medium text-zinc-500">
-          {IS_STANDALONE ? '오늘의 트렌드를, 나만의 콘텐츠로.' : 'AIMaster 계정(이메일·비밀번호)으로 로그인하세요.'}
+          {IS_STANDALONE ? '최신 뉴스부터 내 블로그 자동발행까지.' : 'AIMaster 계정(이메일·비밀번호)으로 로그인하세요.'}
         </p>
       </div>
 

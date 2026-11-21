@@ -382,8 +382,8 @@ export default function HomePage() {
           </div>
           <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200/60">
             <div className="text-[10px] font-black text-emerald-600 uppercase">STEP 4</div>
-            <div className="text-xs font-bold text-slate-900 mt-0.5">{'🚀 내 블로그에 연결'}</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">{'직접 복사 또는 네이버 PC 연결'}</div>
+            <div className="text-xs font-bold text-slate-900 mt-0.5">{'🚀 네이버 자동발행'}</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">{'PC 연결 후 예약 시간에 자동발행'}</div>
           </div>
         </div>
       </section>

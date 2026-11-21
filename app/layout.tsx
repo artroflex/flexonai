@@ -14,12 +14,12 @@ import { PUBLIC_ORIGIN, SITE_DESCRIPTION } from '@/lib/site'
 
 export const metadata: Metadata = {
   metadataBase: new URL(PUBLIC_ORIGIN),
-  title: { default: `${APP_TITLE} | 트렌드에서 GEO 콘텐츠까지`, template: `%s | ${APP_TITLE}` },
+  title: { default: `${APP_TITLE} | 연예뉴스 GEO 글쓰기 · 네이버 자동발행`, template: `%s | ${APP_TITLE}` },
   description: SITE_DESCRIPTION,
   applicationName: APP_TITLE,
   robots: { index: false, follow: true },
-  openGraph: { type: 'website', locale: 'ko_KR', siteName: APP_TITLE, title: `${APP_TITLE} · 트렌드에서 GEO 콘텐츠까지`, description: SITE_DESCRIPTION, images: [{ url: '/artroblog-social.png', width: 1200, height: 630, alt: 'artroBLOG · Trend to content' }] },
-  twitter: { card: 'summary_large_image', title: `${APP_TITLE} · 트렌드에서 GEO 콘텐츠까지`, description: SITE_DESCRIPTION, images: ['/artroblog-social.png'] },
+  openGraph: { type: 'website', locale: 'ko_KR', siteName: APP_TITLE, title: `${APP_TITLE} · 연예뉴스 GEO 글쓰기 · 네이버 자동발행`, description: SITE_DESCRIPTION, images: [{ url: '/artroblog-social.png', width: 1200, height: 630, alt: 'artroBLOG · Trend to content' }] },
+  twitter: { card: 'summary_large_image', title: `${APP_TITLE} · 연예뉴스 GEO 글쓰기 · 네이버 자동발행`, description: SITE_DESCRIPTION, images: ['/artroblog-social.png'] },
 }
 
 export default function RootLayout({

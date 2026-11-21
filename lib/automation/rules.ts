@@ -31,7 +31,7 @@ export interface AutomationJob {
   error: string | null
 }
 export const DEFAULT_SETTINGS: AutomationSettings = {
-  enabled: false, blogId: 'srluxury17', category: '연예뉴스',
+  enabled: false, blogId: '', category: '연예뉴스',
   topic: '연예 (컴백 OR 신곡 OR 공연) (공식 OR 발표)', provider: 'openai', mode: 'draft',
   verifiedDraftAt: null, tokenHash: null, workerLastSeenAt: null,
 }
@@ -88,4 +88,18 @@ export function sectionSourceIds(value: unknown, selectedIds: number[]): number[
     throw new Error('본문의 근거 출처를 확인하지 못했습니다.')
   }
   return [...new Set(value)] as number[]
+}
+
+export function pcRecentlySeen(lastSeen: string | null, now = Date.now()): boolean {
+  const timestamp = Date.parse(lastSeen || '')
+  return Number.isFinite(timestamp) && timestamp <= now + 30000 && now - timestamp <= 180000
+}
+
+export function publishingBlockers(settings: AutomationSettings, keyRegistered: boolean, now = Date.now()): string[] {
+  const blockers: string[] = []
+  if (!/^[a-zA-Z0-9_-]{3,50}$/.test(settings.blogId) || !settings.category.trim()) blockers.push('내 네이버 블로그와 카테고리를 저장해 주세요.')
+  if (!keyRegistered) blockers.push('선택한 AI의 API 키를 등록해 주세요.')
+  if (!settings.tokenHash || !pcRecentlySeen(settings.workerLastSeenAt, now)) blockers.push('PC 크롬 연결 도구를 켜고 연결을 확인해 주세요.')
+  if (!settings.verifiedDraftAt) blockers.push('네이버 임시저장 글 1건을 확인해 주세요.')
+  return blockers
 }

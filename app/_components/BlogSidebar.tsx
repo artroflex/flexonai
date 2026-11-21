@@ -8,7 +8,7 @@ import { APP_VERSION } from "@/utils/version";
 
 import { APP_TITLE, EXTENSION_ENABLED, IS_STANDALONE, MAIN_SITE_URL } from "@/lib/deployment";
 
-const OVERVIEW_ITEM = { href: "/dashboard", icon: "🏠", label: "대시보드" };
+const OVERVIEW_ITEM = { href: "/", icon: "⚡", label: "자동발행 홈" };
 
 const FLOW_STEPS = [
   {
@@ -27,15 +27,15 @@ const FLOW_STEPS = [
   },
   {
     step: 3,
-    href: "/",
+    href: "/my-posts",
     icon: "📝",
-    label: "게시글 관리",
-    description: IS_STANDALONE ? "작성된 글 검수 및 복사" : "작성된 게시글 검수 및 블로그 발행",
+    label: "생성 글 보관함",
+    description: "생성된 콘텐츠 확인과 수정",
   },
 ];
 
 const UTILITY_ITEMS = [
-  { href: "/automation", icon: "⚡", label: "연예뉴스 자동화" },
+  { href: "/automation", icon: "⚡", label: "발행 일정·PC 연결" },
   { href: "/settings", icon: "🔑", label: "API키등록·플랫폼연동" },
   { href: "/about", icon: "🍊", label: "artroBLOG 소개 · GEO" },
   { href: "/guide", icon: "📖", label: "연동 & 사용 매뉴얼" },
@@ -77,7 +77,7 @@ export default function BlogSidebar() {
               {APP_VERSION}
             </span>
           </div>
-          <p className="mt-1 text-xs text-slate-500 font-medium">{IS_STANDALONE ? "트렌드에서 GEO 콘텐츠까지" : "플로우 위저드 블로그 퍼블리싱"}</p>
+          <p className="mt-1 text-xs text-slate-500 font-medium">{IS_STANDALONE ? "뉴스 수집부터 네이버 자동발행까지" : "플로우 위저드 블로그 퍼블리싱"}</p>
           {MAIN_SITE_URL && (
             <a
               href={`${MAIN_SITE_URL}/dashboard`}
@@ -95,7 +95,7 @@ export default function BlogSidebar() {
             onClick={closeMobile}
             className={cn(
               "mb-2 flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-semibold transition-all",
-              pathname === OVERVIEW_ITEM.href
+              (pathname === OVERVIEW_ITEM.href || pathname === "/automation")
                 ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-200/60"
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             )}
@@ -107,7 +107,7 @@ export default function BlogSidebar() {
           {/* 3단계 파이프라인 스텝퍼 */}
           <div className="relative flex flex-col py-1">
             <div className="px-2 pb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              {IS_STANDALONE ? "콘텐츠 제작 순서" : "발행 파이프라인"}
+              {IS_STANDALONE ? "콘텐츠 도구와 보관함" : "발행 파이프라인"}
             </div>
             {FLOW_STEPS.map((item, idx) => {
               const isActive = pathname === item.href;
