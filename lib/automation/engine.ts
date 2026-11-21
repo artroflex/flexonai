@@ -58,11 +58,11 @@ async function buildPost(userId: string, settings: AutomationSettings, job: Auto
   const figure = (url: string, caption: string) => `<figure><img src="${escapeHtml(url)}" alt="${escapeHtml(caption)} · AI 제작 참고 일러스트"/><figcaption>${escapeHtml(caption)} · AI 제작 일러스트, 실제 인물·현장 사진이 아닙니다.</figcaption></figure>`
   const placement = new Map(imageSectionIndices(imageCount).map((sectionIndex, i) => [sectionIndex, images[i + 1]]))
   const sections = draft.sections.map((section, index) => {
-    const references = section.sourceIds.map(i => `<a href="${escapeHtml(fresh[i].link)}">${escapeHtml(fresh[i].source)}</a>`).join(' · ')
-    return `<h2>${escapeHtml(section.heading)}</h2>${section.paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('')}<p><small>근거: ${references}</small></p>${placement.has(index) ? figure(placement.get(index)!, section.heading) : ''}`
+    return `<h2>${escapeHtml(section.heading)}</h2>${section.paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('')}${placement.has(index) ? figure(placement.get(index)!, section.heading) : ''}`
   }).join('')
-  const tags = draft.tags.map(t => '#' + t.replace(/[^가-힣a-zA-Z0-9]/g, '')).filter(t => t.length > 1)
-  job.contentHtml = `<h2>핵심 요약</h2><p>${escapeHtml(intro)}</p><p><small>정리 기준: <time datetime="${new Date().toISOString()}">${kstDate()} (한국 시간)</time> · artroBLOG AI 초안</small></p>${figure(images[0], title)}${sections}<h2>관련 소식 출처</h2>${sources.map(a => `<p><a href="${escapeHtml(a.link)}">${escapeHtml(a.source)} · ${escapeHtml(a.title)}</a> (${escapeHtml(a.pubDate)})</p>`).join('')}<p>공개된 기사 제목·요약을 AI로 정리했습니다. 자세한 맥락은 원문에서 확인해 주세요.</p><p>${escapeHtml(tags.join(' '))}</p>`
+  const tags = [...new Set(draft.tags.map(t => '#' + t.replace(/[^가-힣a-zA-Z0-9]/g, '')).filter(t => t.length > 1))]
+  if (!tags.length) tags.push('#연예뉴스', '#연예소식')
+  job.contentHtml = `<h2>핵심 요약</h2><p>${escapeHtml(intro)}</p><p><small>정리 기준: <time datetime="${new Date().toISOString()}">${kstDate()} (한국 시간)</time> · artroBLOG AI 초안</small></p>${figure(images[0], title)}${sections}<p>공개된 기사 제목·요약을 AI로 정리했습니다. 자세한 맥락은 아래 원문에서 확인해 주세요.</p><p>${escapeHtml(tags.join(' '))}</p><h2>출처</h2>${sources.map((a, index) => `<p>${index + 1}. <a href="${escapeHtml(a.link)}">${escapeHtml(a.source)} · ${escapeHtml(a.title)}</a> (${kstDate(new Date(a.pubDate))})</p>`).join('')}`
   // Keep the existing post editor and archive useful for automated articles, too.
   const { data: post, error } = await db.from('blog_posts').insert({ user_id: userId, title, content: job.contentHtml, excerpt: intro.slice(0, 160), reading_minutes: Math.max(3, Math.ceil(draft.bodyChars / 500)) }).select('id').single()
   if (error || !post) throw new Error('생성한 글을 게시글 관리에 저장하지 못했습니다.')
