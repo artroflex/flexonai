@@ -39,6 +39,7 @@
       for (const el of parsed.querySelectorAll('p,h2,blockquote,figcaption,img')) {
         if (el.parentElement?.closest('blockquote')) continue
         if (el.tagName === 'IMG') { flush(); flow.push({ type: 'image', url: el.getAttribute('src') }); continue }
+        if (el.hasAttribute('data-mobile-gap')) { markup.push(el.outerHTML); continue }
         const links = Array.from(el.querySelectorAll('a')).map(a => a.getAttribute('href')).filter(href => /^https:\/\//.test(href || ''))
         const line = [el.textContent.trim(), ...links].filter(Boolean).join('\n')
         if (line) { lines.push(line); markup.push(el.outerHTML) }
@@ -64,7 +65,9 @@
             if (!document.execCommand('insertHTML', false, (text(paragraph) ? '<p><br/></p>' : '') + block.html)) throw new Error('이미지 뒤 서식 본문을 입력하지 못했습니다.')
             paragraph.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: block.value }))
           }
-          await waitFor(() => document.body.innerText.includes(block.value.split('\n')[0]))
+          // SmartEditor turns <br> into paragraphs, so compare text without layout whitespace.
+          const expected = block.value.split('\n')[0].replace(/\s+/g, '')
+          await waitFor(() => document.body.innerText.replace(/\s+/g, '').includes(expected))
         } else {
           const payload = images.find(img => img.url === block.url)
           if (!payload?.data) throw new Error('본문에 필요한 이미지가 없습니다.')

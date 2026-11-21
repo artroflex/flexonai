@@ -42,7 +42,7 @@ async function buildPost(userId: string, settings: AutomationSettings, job: Auto
   let draft = parseNewsDraft(result, context.length)
   let assessment = await audit(draft)
   if (!bodyLengthAccepted(draft.bodyChars) || assessment.supported !== true) {
-    result = await generate({ instruction: '아래 초안의 분량과 근거 검수 결과를 반영해 수정하세요. unsupportedIssues에 지적된 표현은 실제 근거가 없으면 삭제하세요. 확인된 사실과 출처는 유지하고 공백 포함 1500~2000자로 다듬으세요. 자료가 부족하면 insufficient=true를 반환하세요. 반복·추측으로 분량을 채우지 마세요.', unsupportedIssues: assessment.issues, actualBodyChars: draft.bodyChars, sectionBodyChars: draft.sections.map(section => Array.from(section.paragraphs.join(' ')).length), target: { intro: '130~180자', eachSection: '340~420자', total: '1500~2000자' }, draft })
+    result = await generate({ instruction: '아래 초안의 분량과 근거 검수 결과를 반영해 수정하세요. unsupportedIssues에 지적된 표현은 실제 근거가 없으면 삭제하세요. 확인된 사실과 출처는 유지하고 공백 포함 1500~2000자로 다듬으세요. 자료가 부족하면 insufficient=true를 반환하세요. 반복·추측으로 분량을 채우지 마세요.', unsupportedIssues: assessment.issues, actualBodyChars: draft.bodyChars, sectionBodyChars: draft.sections.map(section => Array.from(section.paragraphs.join(' ')).length), target: { intro: '100~130자', eachSection: '320~360자', total: '1500~2000자' }, draft })
     if (result.insufficient !== false) { job.status = 'skipped'; job.error = '충분한 근거 없이 분량을 늘리지 않도록 생성을 건너뛰었습니다.'; return }
     draft = parseNewsDraft(result, context.length)
     assessment = await audit(draft)

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import { chromium } from '@playwright/test'
 import sharp from 'sharp'
+import { mobileParagraphs } from '../lib/automation/render.ts'
 const adapter = await fs.readFile(new URL('../connector/naver.js', import.meta.url), 'utf8')
 const task = { blogId: 'srluxury17', category: '연예뉴스', title: '신곡 발매 소식', mode: 'draft', contentHtml: '<p>공식 발표를 확인했습니다.</p><h2>발매 정보</h2><p>원문 출처에서 자세히 확인하세요.</p>' }
 const fixture = `<!doctype html><body><div class="se-title-text"><p class="se-text-paragraph" contenteditable="true"></p></div><div class="se-component se-text"><p class="se-text-paragraph" contenteditable="true"></p></div><button id="save">저장</button><button id="open">발행</button><div id="proof"></div><script>
@@ -29,6 +30,25 @@ test('draft mode saves text and category without pressing final publish', async 
     assert.equal(await page.evaluate(() => window.saves), 2)
     assert.equal(await page.locator('.se-title-text').innerText(), task.title)
     assert.match(await page.locator('.se-component.se-text').innerText(), /공식 발표/)
+  })
+})
+
+test('mobile paragraphs retain black normal text and blank gaps inside a red bold editor', async () => {
+  await browserPage(async page => {
+    await page.locator('.se-component').evaluate(el => { el.style.color = '#c62828'; el.style.fontWeight = '700' })
+    const contentHtml = mobileParagraphs('모바일에서 한 번에 읽기 쉽도록 문단을 짧게 나눕니다. 다른 내용은 새 단락에서 설명합니다.')
+    const result = await page.evaluate(task => globalThis.artroNaver.run(task, null), { ...task, contentHtml })
+    assert.equal(result.status, 'draft_saved', result.error)
+    assert.ok(await page.locator('[data-mobile-gap]').count() >= 2)
+    const style = await page.locator('.se-component').evaluate(el => {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+      let node
+      while ((node = walker.nextNode())) if (node.textContent.includes('모바일에서')) {
+        const computed = getComputedStyle(node.parentElement)
+        return { color: computed.color, weight: computed.fontWeight }
+      }
+    })
+    assert.deepEqual(style, { color: 'rgb(34, 34, 34)', weight: '400' })
   })
 })
 test('existing user draft and wrong account fail closed without changing text', async () => {

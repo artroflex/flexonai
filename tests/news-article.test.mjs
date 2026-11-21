@@ -1,12 +1,25 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { parseNewsDraft, countNewsBody, bodyLengthAccepted, imageSectionIndices, resolveNewsImageCount, validateNewsQuotes, editorialPrompt } from '../lib/automation/article.ts'
-import { renderNewsHtml } from '../lib/automation/render.ts'
+import { renderNewsHtml, mobileLines, mobileParagraphs, photoCaption } from '../lib/automation/render.ts'
 import { mergeNewsPools } from '../lib/automation/newsSelection.ts'
 
 function fixture() {
   return { title: '신곡 공식 발표', intro: '공식 발표를 먼저 정리했어요.', sourceIds: [0, 1], tags: ['신곡'], sections: Array.from({ length: 4 }, (_, i) => ({ heading: `소식 ${i + 1}`, paragraphs: ['확인된 내용이에요.', '원문을 함께 확인할 수 있어요.'], sourceIds: [i % 2] })) }
 }
+
+test('mobile copy keeps Korean words intact, uses short lines and explicit paragraph gaps', () => {
+  const copy = '둘째 날 앨범 부문 대상은 정규 5집 아리랑에 돌아갔습니다. 지난 3월 완전체로 돌아오며 발표한 앨범입니다.'
+  const lines = mobileLines(copy)
+  assert.equal(lines.join(' '), copy)
+  assert.ok(lines.every(line => Array.from(line).length <= 16))
+  const html = mobileParagraphs(copy)
+  assert.ok((html.match(/data-mobile-gap/g) || []).length >= 3)
+  assert.match(html, /<span style="font-size:19px;color:#222222;font-weight:400;">/)
+  assert.ok(!html.includes('#C62828'))
+  assert.equal(photoCaption(0, '2019-04-17'), '자료사진 1 · 2019 · 출처 하단')
+  assert.ok(!photoCaption(0).includes('\n'))
+})
 test('body count excludes title, tags, source IDs and counts normalized Korean text with spaces', () => {
   const draft = fixture()
   const result = parseNewsDraft(draft, 2)
