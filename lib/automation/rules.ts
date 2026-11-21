@@ -35,9 +35,16 @@ export interface AutomationJob {
   publishedUrl: string | null
   error: string | null
 }
+export const DEFAULT_NEWS_TOPIC = '연예 (예능 OR 드라마 OR 배우 OR 가수 OR 영화 OR 결혼 OR 캐스팅 OR 컴백)'
+export const NEWS_TOPIC_PRESETS = [
+  { label: '관심 연예 이슈 전체', topic: DEFAULT_NEWS_TOPIC },
+  { label: '예능 · 연애 · 결혼', topic: '연예 (예능 OR "나는 SOLO" OR "계약결혼" OR 결혼 OR 방송)' },
+  { label: '배우 · 드라마 · 영화', topic: '연예 (드라마 OR 영화 OR 배우 OR 캐스팅 OR 제작발표회)' },
+  { label: '가수 · 음악 · 공연', topic: '연예 (가수 OR 신곡 OR 컴백 OR 공연 OR 콘서트)' },
+] as const
 export const DEFAULT_SETTINGS: AutomationSettings = {
   enabled: false, blogId: '', category: '연예뉴스',
-  topic: '연예 (컴백 OR 신곡 OR 공연) (공식 OR 발표)', provider: 'openai', mode: 'draft', imageCount: 5,
+  topic: DEFAULT_NEWS_TOPIC, provider: 'openai', mode: 'draft', imageCount: 5,
   verifiedDraftAt: null, tokenHash: null, workerLastSeenAt: null,
 }
 export function parseSettings(input: unknown, previous: AutomationSettings): AutomationSettings {

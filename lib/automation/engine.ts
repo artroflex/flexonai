@@ -5,7 +5,8 @@ import { generateContentJson } from '@/utils/ai/contentJson'
 import { resolveContentModel } from '@/utils/ai/contentModels'
 import { resolveApiKey } from '@/utils/apiKeys'
 import { createAdminClient } from '@/utils/supabase/admin'
-import { escapeHtml, isPublicLink, kstDate, scheduledRunId, blocksGeneration, type AutomationJob, type AutomationSettings } from './rules'
+import { escapeHtml, isPublicLink, kstDate, scheduledRunId, blocksGeneration, DEFAULT_NEWS_TOPIC, NEWS_TOPIC_PRESETS, type AutomationJob, type AutomationSettings } from './rules'
+import { mergeNewsPools } from './newsSelection'
 import { bodyLengthAccepted, parseNewsDraft, resolveNewsImageCount, imageSectionIndices, NEWS_EDITORIAL_PROMPT, NEWS_GROUNDING_PROMPT, type NewsDraft } from './article'
 import { generateNewsImages } from './images'
 import { getSettings, listJobs, saveJob, withUserLock, writeObject } from './store'
@@ -17,13 +18,16 @@ async function buildPost(userId: string, settings: AutomationSettings, job: Auto
   const imageKey = settings.provider === 'openai' ? key : await resolveApiKey(db, userId, 'openai')
   if (!imageKey) throw new Error('뉴스 이미지 생성용 OpenAI API 키를 등록해 주세요.')
   const imageCount = resolveNewsImageCount(settings.imageCount)
-  const news = await collect24HourNews(settings.topic + ' when:1d')
-  const articles = news.articles.filter(a => isPublicLink(a.link) && Number.isFinite(Date.parse(a.pubDate)) && Date.now() - Date.parse(a.pubDate) >= -300000 && Date.now() - Date.parse(a.pubDate) <= 86400000)
+  const queries = settings.topic === DEFAULT_NEWS_TOPIC ? NEWS_TOPIC_PRESETS.slice(1).map(preset => preset.topic) : [settings.topic]
+  const pools = await Promise.all(queries.map(async query => {
+    try { return (await collect24HourNews(query + ' when:1d')).articles } catch { return [] }
+  }))
+  const articles = mergeNewsPools(pools).filter(a => isPublicLink(a.link) && Number.isFinite(Date.parse(a.pubDate)) && Date.now() - Date.parse(a.pubDate) >= -300000 && Date.now() - Date.parse(a.pubDate) <= 86400000)
   const deliveredHistory = history.filter(j => ['queued', 'working', 'draft_saved', 'published', 'needs_review'].includes(j.status))
   const used = new Set(deliveredHistory.flatMap(j => j.sourceLinks))
   const fresh = articles.filter(a => !used.has(a.link))
   if (fresh.length < 2) { job.status = 'skipped'; job.error = '최근 24시간의 새로운 출처가 2개 미만이라 글을 만들지 않았습니다.'; return }
-  const context = fresh.slice(0, 12).map((a, i) => ({ id: i, title: a.title, snippet: a.snippet, source: a.source, date: a.pubDate }))
+  const context = fresh.slice(0, 30).map((a, i) => ({ id: i, title: a.title, snippet: a.snippet, source: a.source, date: a.pubDate }))
   const textSignal = AbortSignal.timeout(100000)
   const generate = (revision?: unknown) => generateContentJson({
     provider: settings.provider, apiKey: key, model: resolveContentModel(settings.provider, undefined), system: NEWS_EDITORIAL_PROMPT,

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { bodyLengthAccepted } from '@/lib/automation/article'
-import { DEFAULT_SETTINGS, kstDate, pcRecentlySeen, publishingBlockers, type AutomationJob, type AutomationSettings } from '@/lib/automation/rules'
+import { DEFAULT_SETTINGS, NEWS_TOPIC_PRESETS, kstDate, pcRecentlySeen, publishingBlockers, type AutomationJob, type AutomationSettings } from '@/lib/automation/rules'
 
 type Settings = Omit<AutomationSettings, 'tokenHash'> & { connected?: boolean }
 const labels: Record<string, string> = { generating: '뉴스·GEO 글 생성 중', queued: '네이버 전송 대기', working: '네이버 처리 중', draft_saved: '첫 연결 임시저장 완료', published: '공개 발행 완료', failed: '작업 종료', needs_review: '네이버 결과 확인 필요', skipped: '새로운 근거 부족 · 건너뜀' }
@@ -62,7 +62,7 @@ export default function PublishingWorkspace() {
     <section className="studio-hero mb-6 p-6 sm:p-9">
       <div className="relative z-10"><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-extrabold tracking-[.16em] text-orange-800">ARTROBLOG · AUTO PUBLISH</p><span className="rounded-full border border-orange-200 bg-white/80 px-3 py-1.5 text-xs font-bold text-orange-900">하루 최대 3건 · 네이버 블로그</span></div>
         <h1 className="mt-5 text-3xl font-black leading-tight tracking-tight sm:text-4xl">뉴스를 발견하고,<br /><span className="text-orange-700">내 블로그에 자동발행.</span></h1>
-        <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">최근 연예뉴스 수집 → 출처가 있는 GEO 글·표지 생성 → 네이버 공개 발행. 본문 1,500~2,000자와 이미지 4~5장을 자연스러운 말투로 구성해 예약에 맞춰 처리합니다.</p>
+        <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">관심을 끄는 연예 이슈 수집 → 출처가 있는 GEO 글·표지 생성 → 네이버 공개 발행. 본문 1,500~2,000자와 이미지 4~5장을 자연스러운 말투로 구성해 예약에 맞춰 처리합니다.</p>
         <div className="mt-6 rounded-2xl border border-orange-200 bg-white/85 p-5"><p className="text-xs font-bold text-orange-800">현재 운영 상태</p><h2 className="mt-2 text-lg font-bold">{headline}</h2>
           {loaded && blockers.length > 0 && <ul className="mt-3 space-y-1.5 text-sm leading-6 text-slate-600">{blockers.map(reason => <li key={reason}>• {reason}</li>)}</ul>}
           {needsReview && <p className="mt-3 text-sm text-amber-800">결과가 불확실한 글이 있어 다음 작업을 보류합니다. 아래 발행 기록을 확인하세요.</p>}
@@ -83,7 +83,9 @@ export default function PublishingWorkspace() {
       <section id="publishing-settings" className="scroll-mt-20 space-y-5 rounded-2xl border border-slate-200 bg-white p-6"><h2 className="text-lg font-bold">발행할 블로그와 콘텐츠</h2>
         <label className="block text-sm font-semibold">내 네이버 블로그 ID<input placeholder="예: my_blog_id" value={settings.blogId} onChange={e => change({ blogId: e.target.value, verifiedDraftAt: null, mode: 'draft' })} className={field}/></label>
         <label className="block text-sm font-semibold">네이버 카테고리 이름<input value={settings.category} onChange={e => change({ category: e.target.value, verifiedDraftAt: null, mode: 'draft' })} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">네이버에 만든 카테고리 이름과 같아야 합니다.</span></label>
-        <label className="block text-sm font-semibold">수집할 뉴스 주제<input value={settings.topic} onChange={e => change({ topic: e.target.value })} className={field}/></label>
+        <label className="block text-sm font-semibold">수집할 연예 분야·뉴스 주제<input value={settings.topic} onChange={e => change({ topic: e.target.value })} className={field}/></label>
+        <div className="flex flex-wrap gap-2">{NEWS_TOPIC_PRESETS.map(preset => <button key={preset.label} type="button" onClick={() => change({ topic: preset.topic })} className={`rounded-full border px-3 py-2 text-xs font-semibold ${settings.topic === preset.topic ? 'border-orange-300 bg-orange-100 text-orange-900' : 'border-slate-200 bg-white text-slate-600 hover:border-orange-300'}`}>{preset.label}</button>)}</div>
+        <p className="text-xs leading-6 text-slate-500">예능·드라마·영화·음악에서 실제 변화와 비하인드를 골라, 궁금증을 주는 제목과 그 답을 담은 본문을 만듭니다. 홈 추천 노출이나 광고 수익을 보장하는 기능은 아닙니다.</p>
         <label className="block text-sm font-semibold">글을 작성할 AI<select value={settings.provider} onChange={e => change({ provider: e.target.value as Settings['provider'] })} className={field}><option value="openai">OpenAI</option><option value="gemini">Google Gemini</option><option value="anthropic">Claude</option></select></label>
         <label className="block text-sm font-semibold">글에 넣을 이미지<select value={settings.imageCount ?? 5} onChange={e => change({ imageCount: Number(e.target.value) as 4 | 5, verifiedDraftAt: null, mode: 'draft' })} className={field}><option value={5}>5장 · 표지 1장 + 본문 4장 (기본)</option><option value={4}>4장 · 표지 1장 + 본문 3장</option></select></label>
         <p className="text-xs leading-6 text-slate-500">본문은 공백 포함 1,500~2,000자로 검사합니다. 제목·출처·이미지 설명은 제외하며 부족한 사실을 지어내 분량을 채우지 않습니다. 이미지는 OpenAI로 생성하므로 이미지 사용량도 본인 OpenAI 계정에 청구됩니다.</p>

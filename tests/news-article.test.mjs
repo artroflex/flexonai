@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { parseNewsDraft, countNewsBody, bodyLengthAccepted, imageSectionIndices, resolveNewsImageCount } from '../lib/automation/article.ts'
+import { mergeNewsPools } from '../lib/automation/newsSelection.ts'
 
 function fixture() {
   return { title: '신곡 공식 발표', intro: '공식 발표를 먼저 정리했어요.', sourceIds: [0, 1], tags: ['신곡'], sections: Array.from({ length: 4 }, (_, i) => ({ heading: `소식 ${i + 1}`, paragraphs: ['확인된 내용이에요.', '원문을 함께 확인할 수 있어요.'], sourceIds: [i % 2] })) }
@@ -35,4 +36,15 @@ test('four distinct sections with valid source references are required before bu
   assert.throws(() => parseNewsDraft({ ...draft, sections: draft.sections.map(s => ({ ...s, sourceIds: [99] })) }, 2))
   assert.throws(() => parseNewsDraft({ ...draft, sourceIds: [0] }, 2))
   assert.throws(() => parseNewsDraft({ ...draft, sections: draft.sections.map(s => ({ ...s, paragraphs: ['한 문단만'] })) }, 2))
+})
+
+test('a busy news category cannot crowd out other categories, and duplicate links use one slot', () => {
+  const tv = Array.from({ length: 10 }, (_, i) => ({ link: `tv-${i}`, category: 'tv' }))
+  const film = [{ link: 'film-0', category: 'film' }, { link: 'tv-0', category: 'film' }, { link: 'film-1', category: 'film' }]
+  const music = [{ link: 'music-0', category: 'music' }]
+  const merged = mergeNewsPools([tv, film, music], 6)
+  assert.deepEqual(merged.slice(0, 3).map(a => a.category), ['tv', 'film', 'music'])
+  assert.equal(merged.length, 6)
+  assert.equal(new Set(merged.map(a => a.link)).size, merged.length)
+  assert.ok(merged.some(a => a.link === 'film-1'))
 })
