@@ -28,7 +28,7 @@ export default async function AuthPage() {
 
           {/* 인증 완료 상태 카드 */}
           <div className="bg-white rounded-2xl border border-zinc-150/80 shadow-[0_8px_30px_rgb(0,0,0,0.03)] p-8 text-center">
-            <div className="w-16 h-16 bg-[#e8effd] text-[#005acc] rounded-full flex items-center justify-center mx-auto mb-5">
+            <div className="w-16 h-16 bg-[#ffedd5] text-[#c2410c] rounded-full flex items-center justify-center mx-auto mb-5">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"

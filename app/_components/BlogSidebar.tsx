@@ -23,7 +23,7 @@ const FLOW_STEPS = [
     href: "/write/ai-form",
     icon: "✏️",
     label: "AI 글쓰기",
-    description: "주제 입력 시 AI 초안 & 삽화 생성",
+    description: "핵심 요약·출처를 담은 GEO 글쓰기",
   },
   {
     step: 3,
@@ -37,6 +37,7 @@ const FLOW_STEPS = [
 const UTILITY_ITEMS = [
   { href: "/automation", icon: "⚡", label: "연예뉴스 자동화" },
   { href: "/settings", icon: "🔑", label: "API키등록·플랫폼연동" },
+  { href: "/about", icon: "🍊", label: "artroBLOG 소개 · GEO" },
   { href: "/guide", icon: "📖", label: "연동 & 사용 매뉴얼" },
 ];
 
@@ -76,7 +77,7 @@ export default function BlogSidebar() {
               {APP_VERSION}
             </span>
           </div>
-          <p className="mt-1 text-xs text-slate-500 font-medium">{IS_STANDALONE ? "글감 수집부터 복사까지" : "플로우 위저드 블로그 퍼블리싱"}</p>
+          <p className="mt-1 text-xs text-slate-500 font-medium">{IS_STANDALONE ? "트렌드에서 GEO 콘텐츠까지" : "플로우 위저드 블로그 퍼블리싱"}</p>
           {MAIN_SITE_URL && (
             <a
               href={`${MAIN_SITE_URL}/dashboard`}
@@ -157,7 +158,7 @@ export default function BlogSidebar() {
         {/* 유틸리티 메뉴 */}
         <div className="mt-4 border-t border-slate-200 pt-3">
           <div className="px-2 pb-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            설정 및 매뉴얼
+            연결과 시작 안내
           </div>
 
           {/* 좌측 사이드바 3D 에메랄드 확장 다운로드 버튼 (2026-10-25 주인님 지시) */}

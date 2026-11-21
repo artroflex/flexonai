@@ -10,7 +10,7 @@ import { IS_STANDALONE, MAIN_SITE_URL } from '@/lib/deployment'
 export default function AuthForm() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') ?? ''
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [mode, setMode] = useState<'login' | 'signup'>(searchParams.get('mode') === 'signup' ? 'signup' : 'login')
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
@@ -37,11 +37,11 @@ export default function AuthForm() {
     <div className="w-full max-w-[440px] px-4">
       {/* 블로그 포스팅 자동화 로고 영역 */}
       <div className="flex flex-col items-center mb-8 text-center">
-        <Link href="/" className="text-3xl font-extrabold tracking-tight text-[#005acc] mb-1 font-sans no-underline">
+        <Link href="/" className="text-3xl font-extrabold tracking-tight text-[#c2410c] mb-1 font-sans no-underline">
           {APP_TITLE}
         </Link>
         <p className="text-sm font-medium text-zinc-500">
-          {IS_STANDALONE ? '이메일·비밀번호로 가입하거나 로그인하세요.' : 'AIMaster 계정(이메일·비밀번호)으로 로그인하세요.'}
+          {IS_STANDALONE ? '오늘의 트렌드를, 나만의 콘텐츠로.' : 'AIMaster 계정(이메일·비밀번호)으로 로그인하세요.'}
         </p>
       </div>
 
@@ -49,7 +49,7 @@ export default function AuthForm() {
       <div className="bg-white rounded-2xl border border-zinc-150/80 shadow-[0_8px_30px_rgb(0,0,0,0.03)] p-8">
         
         {/* 상단 탭 버튼 */}
-        <div className="flex bg-[#e8effd]/60 p-1 rounded-xl mb-6">
+        <div className="flex bg-[#ffedd5]/60 p-1 rounded-xl mb-6">
           <button
             type="button"
             onClick={() => {
@@ -59,7 +59,7 @@ export default function AuthForm() {
             }}
             className={`flex-1 text-center py-2.5 text-xs font-semibold rounded-lg transition-all duration-200 ${
               mode === 'login'
-                ? 'bg-[#005acc] text-white shadow-sm'
+                ? 'bg-[#c2410c] text-white shadow-sm'
                 : 'text-zinc-600 hover:text-zinc-900'
             }`}
           >
@@ -74,7 +74,7 @@ export default function AuthForm() {
             }}
             className={`flex-1 text-center py-2.5 text-xs font-semibold rounded-lg transition-all duration-200 ${
               mode === 'signup'
-                ? 'bg-[#005acc] text-white shadow-sm'
+                ? 'bg-[#c2410c] text-white shadow-sm'
                 : 'text-zinc-600 hover:text-zinc-900'
             }`}
           >
@@ -105,7 +105,7 @@ export default function AuthForm() {
             </p>
             <a
               href={`${MAIN_SITE_URL}/register`}
-              className="block w-full py-3 bg-[#005acc] hover:bg-[#004bb9] text-white font-semibold rounded-xl text-sm transition-all shadow-sm"
+              className="block w-full py-3 bg-[#c2410c] hover:bg-[#9a3412] text-white font-semibold rounded-xl text-sm transition-all shadow-sm"
             >
               AIMaster 회원가입 하러가기
             </a>
@@ -142,7 +142,7 @@ export default function AuthForm() {
                 name="email"
                 type="email"
                 required
-                className="w-full text-sm py-3 pl-10 pr-4 bg-zinc-50 border border-zinc-200/80 rounded-xl focus:outline-none focus:border-[#005acc] focus:ring-1 focus:ring-[#005acc]/20 transition-all font-sans text-zinc-800 placeholder-zinc-400"
+                className="w-full text-sm py-3 pl-10 pr-4 bg-zinc-50 border border-zinc-200/80 rounded-xl focus:outline-none focus:border-[#c2410c] focus:ring-1 focus:ring-[#c2410c]/20 transition-all font-sans text-zinc-800 placeholder-zinc-400"
                 placeholder="developer@example.com"
               />
             </div>
@@ -161,7 +161,7 @@ export default function AuthForm() {
                     e.preventDefault();
                     setError('비밀번호 재설정 기능은 준비 중입니다.');
                   }}
-                  className="text-xs text-[#005acc] font-semibold hover:underline"
+                  className="text-xs text-[#c2410c] font-semibold hover:underline"
                 >
                   비밀번호 찾기?
                 </a>
@@ -189,7 +189,7 @@ export default function AuthForm() {
                 name="password"
                 type="password"
                 required
-                className="w-full text-sm py-3 pl-10 pr-4 bg-zinc-50 border border-zinc-200/80 rounded-xl focus:outline-none focus:border-[#005acc] focus:ring-1 focus:ring-[#005acc]/20 transition-all font-sans text-zinc-800 placeholder-zinc-400"
+                className="w-full text-sm py-3 pl-10 pr-4 bg-zinc-50 border border-zinc-200/80 rounded-xl focus:outline-none focus:border-[#c2410c] focus:ring-1 focus:ring-[#c2410c]/20 transition-all font-sans text-zinc-800 placeholder-zinc-400"
                 placeholder="••••••••"
               />
             </div>
@@ -199,7 +199,7 @@ export default function AuthForm() {
           <button
             type="submit"
             disabled={isPending}
-            className={`w-full py-3 bg-[#005acc] hover:bg-[#004bb9] text-white font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-1.5 focus:outline-none shadow-sm cursor-pointer shadow-blue-500/10 ${
+            className={`w-full py-3 bg-[#c2410c] hover:bg-[#9a3412] text-white font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-1.5 focus:outline-none shadow-sm cursor-pointer shadow-blue-500/10 ${
               isPending ? 'opacity-80 cursor-not-allowed' : ''
             }`}
           >
@@ -238,6 +238,7 @@ export default function AuthForm() {
         </form>
         )}
 
+        <Link href="/about" className="mt-6 block text-center text-sm font-semibold text-orange-800 hover:underline">artroBLOG는 어떤 서비스인가요? →</Link>
         {/* 이용약관 및 푸터 */}
         <p className="mt-8 text-center text-[10.5px] leading-5 text-zinc-400 font-sans tracking-wide">
           계속 진행함으로써 귀하는 당사의{' '}

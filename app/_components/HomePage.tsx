@@ -9,7 +9,7 @@ import CategoryManagementModal from './CategoryManagementModal'
 import { ImageStorageNotice } from '@/blog/components/settings/ImageStorageNotice'
 import { retentionDaysLeft } from '@/blog/utils/imageRetention'
 import { APP_VERSION } from '@/utils/version'
-import { EXTENSION_ENABLED, IS_STANDALONE } from '@/lib/deployment'
+import { IS_STANDALONE } from '@/lib/deployment'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -228,14 +228,14 @@ export default function HomePage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-7 sm:py-10">
       {/* =================== STUDIO HERO BANNER =================== */}
-      <section className="studio-hero p-6 sm:p-8 mb-8">
+      <section className="studio-hero p-6 sm:p-10 mb-8">
         <div className="relative z-10">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-blue-600 text-white shadow-sm shadow-blue-500/20">
-                <span>{IS_STANDALONE ? '✍️ BLOG CONTENT STUDIO' : '✍️ BLOG PUBLISHING STUDIO'}</span>
+                <span>{'ARTROBLOG · GEO STUDIO'}</span>
               </span>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-white/80 text-blue-700 border border-blue-200 shadow-xs">
                 {APP_VERSION}
@@ -257,26 +257,29 @@ export default function HomePage() {
             </div>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight leading-tight mb-2">
-            주제·키워드 입력만으로 완성하는 SEO 최적화 블로그
+          <h1 className="text-[30px] sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-tight mb-2">
+            오늘의 이슈를,<br /><span className="text-orange-700">읽히는 콘텐츠로.</span>
           </h1>
           <p className="text-slate-600 text-sm sm:text-base max-w-2xl mb-6 leading-relaxed">
-            {IS_STANDALONE ? '멀티 AI(Gemini / OpenAI / Claude)' : '멀티 AI(GPT-4o / Claude 3.5 Sonnet / Gemini 2.5 Flash)'} 기반 본문 작성, 나노바나나 고화질 삽화 자동 생성, Tiptap 리치 에디터 검수{EXTENSION_ENABLED ? ' 및 크롬 확장 프로그램 연동' : ', 복사해서 내 블로그에 붙여넣기'}까지 원스톱으로 지원합니다.
+            트렌드를 모으고, 핵심을 정리하고, 출처까지 담으세요. AI 검색이 이해하기 쉬운 GEO 글쓰기부터 네이버 발행 연결까지 한곳에서 관리합니다.
           </p>
 
+          <div className="mb-6 flex flex-wrap gap-2 text-[11px] font-semibold text-orange-900">
+            {['GEO · AI 검색을 고려한 구조', '확인 가능한 출처', '내 블로그 발행 연결'].map(label => <span key={label} className="rounded-full border border-orange-200 bg-white/80 px-3 py-1.5">{label}</span>)}
+          </div>
           {/* 퀵 액션 버튼 & 검색 폼 */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <Link
-              href="/write/ai-form"
-              className="btn-3d-green inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-black text-white transition-all shadow-md"
+              href="/automation"
+              className="brand-cta inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-black text-white transition-all shadow-md"
             >
-              <span>✨ AI 글쓰기 (자동 완성)</span>
+              <span>⚡ 연예뉴스 자동화 시작</span>
             </Link>
             <Link
-              href="/candidates"
+              href="/write/ai-form"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition-all"
             >
-              <span>🔍 글감·토픽 수집</span>
+              <span>✍️ GEO 콘텐츠 작성</span>
             </Link>
 
             {/* 인라인 검색 폼 */}
@@ -284,7 +287,8 @@ export default function HomePage() {
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="작성된 블로그 제목 검색..."
+                  aria-label="내 게시글 제목 검색"
+                  placeholder="내 콘텐츠 검색"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 shadow-xs"
@@ -324,7 +328,7 @@ export default function HomePage() {
           <div className="text-2xl font-black text-slate-900">
             {loading ? "..." : `${totalCount}건`}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">회원 본인 소유의 전체 {IS_STANDALONE ? '게시글' : '발행 글감'}</p>
+          <p className="text-[11px] text-slate-500 mt-1">내가 작성하고 보관 중인 {IS_STANDALONE ? '게시글' : '발행 글감'}</p>
         </div>
 
         <div className="stat-card p-5">
@@ -335,7 +339,7 @@ export default function HomePage() {
           <div className="text-2xl font-black text-slate-900">
             {categories.length}개 분야
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">전문 기술 및 네이버/티스토리 카테고리</p>
+          <p className="text-[11px] text-slate-500 mt-1">주제별로 정리한 나의 콘텐츠</p>
         </div>
 
         <div className="stat-card p-5">
@@ -344,9 +348,9 @@ export default function HomePage() {
             <span className="p-2 rounded-xl bg-emerald-50 text-emerald-600 text-sm">🔒</span>
           </div>
           <div className="text-lg font-black text-emerald-600">
-            100% BYOK & RLS
+            내 계정으로 안전하게
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">회원 본인 소유 격리 / 생성일 기준 30일 보관</p>
+          <p className="text-[11px] text-slate-500 mt-1">API 키·글은 계정별 관리 · 글·이미지 30일 보관</p>
         </div>
       </section>
 
@@ -354,7 +358,7 @@ export default function HomePage() {
       <section className="mb-8 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
         <div className="flex items-center justify-between mb-3 px-1">
           <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-            <span>{IS_STANDALONE ? '⚡ 4단계 블로그 콘텐츠 제작 순서' : '⚡ 4단계 블로그 자동 발행 파이프라인'}</span>
+            <span>{'아이디어에서 발행까지, 네 단계'}</span>
           </span>
           <Link href="/guide" className="text-xs font-bold text-blue-600 hover:text-blue-800">
             매뉴얼 상세 보기 →
@@ -368,18 +372,18 @@ export default function HomePage() {
           </div>
           <div className="p-3 rounded-xl bg-indigo-50/60 border border-indigo-200/60">
             <div className="text-[10px] font-black text-indigo-600 uppercase">STEP 2</div>
-            <div className="text-xs font-bold text-slate-900 mt-0.5">✏️ AI 초안 & 나노바나나</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">멀티 모델 본문 & 고화질 삽화</div>
+            <div className="text-xs font-bold text-slate-900 mt-0.5">✏️ 답이 선명한 GEO 초안</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">핵심 요약 · 명확한 소제목</div>
           </div>
           <div className="p-3 rounded-xl bg-violet-50/60 border border-violet-200/60">
             <div className="text-[10px] font-black text-violet-600 uppercase">STEP 3</div>
-            <div className="text-xs font-bold text-slate-900 mt-0.5">📝 리치 에디터 검수</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Tiptap 서식 & 이미지 배치</div>
+            <div className="text-xs font-bold text-slate-900 mt-0.5">📝 사실과 출처 검토</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">내용 확인 · 이미지 배치</div>
           </div>
           <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200/60">
             <div className="text-[10px] font-black text-emerald-600 uppercase">STEP 4</div>
-            <div className="text-xs font-bold text-slate-900 mt-0.5">{EXTENSION_ENABLED ? '🚀 블로그 발행·연동' : '📋 복사해서 붙여넣기'}</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">{EXTENSION_ENABLED ? '크롬 확장 프로그램 & 웹 발행' : '본문 복사 → 내 블로그에 Ctrl+V'}</div>
+            <div className="text-xs font-bold text-slate-900 mt-0.5">{'🚀 내 블로그에 연결'}</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">{'직접 복사 또는 네이버 PC 연결'}</div>
           </div>
         </div>
       </section>

@@ -9,11 +9,17 @@ const sans = localFont({
   weight: '100 900',
 })
 
-import { APP_TITLE, IS_STANDALONE, brandTitle } from '@/lib/deployment'
+import { APP_TITLE } from '@/lib/deployment'
+import { PUBLIC_ORIGIN, SITE_DESCRIPTION } from '@/lib/site'
 
 export const metadata: Metadata = {
-  title: IS_STANDALONE ? brandTitle(APP_TITLE) : APP_TITLE,
-  description: '주제와 참고링크만 제시하면 검색엔진에 최적화된 고품질 기술 블로그 글을 자동으로 생성해 주는 AI 개발자 플랫폼',
+  metadataBase: new URL(PUBLIC_ORIGIN),
+  title: { default: `${APP_TITLE} | 트렌드에서 GEO 콘텐츠까지`, template: `%s | ${APP_TITLE}` },
+  description: SITE_DESCRIPTION,
+  applicationName: APP_TITLE,
+  robots: { index: false, follow: true },
+  openGraph: { type: 'website', locale: 'ko_KR', siteName: APP_TITLE, title: `${APP_TITLE} · 트렌드에서 GEO 콘텐츠까지`, description: SITE_DESCRIPTION, images: [{ url: '/artroblog-social.png', width: 1200, height: 630, alt: 'artroBLOG · Trend to content' }] },
+  twitter: { card: 'summary_large_image', title: `${APP_TITLE} · 트렌드에서 GEO 콘텐츠까지`, description: SITE_DESCRIPTION, images: ['/artroblog-social.png'] },
 }
 
 export default function RootLayout({

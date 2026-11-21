@@ -81,3 +81,11 @@ export function validateResult(job: AutomationJob, input: Record<string, unknown
   if (status === 'draft_saved' && (typeof input.draftProof !== 'string' || input.draftProof.trim().length < 5)) throw new Error('임시저장 확인 정보가 필요합니다.')
   return status as JobStatus
 }
+
+/** Only link a section to articles explicitly selected for this generated post. */
+export function sectionSourceIds(value: unknown, selectedIds: number[]): number[] {
+  if (!Array.isArray(value) || !value.length || value.some(id => !Number.isInteger(id) || !selectedIds.includes(id))) {
+    throw new Error('본문의 근거 출처를 확인하지 못했습니다.')
+  }
+  return [...new Set(value)] as number[]
+}

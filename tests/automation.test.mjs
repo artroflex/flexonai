@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { DEFAULT_SETTINGS, parseSettings, kstDate, escapeHtml, isPublicLink, isPublishedUrl, validateResult, scheduledRunId, DAILY_SLOTS, blocksGeneration } from '../lib/automation/rules.ts'
+import { DEFAULT_SETTINGS, parseSettings, kstDate, escapeHtml, isPublicLink, isPublishedUrl, validateResult, scheduledRunId, DAILY_SLOTS, blocksGeneration, sectionSourceIds } from '../lib/automation/rules.ts'
 test('KST daily slot crosses UTC date boundary correctly', () => {
   assert.equal(kstDate(new Date('2026-11-20T15:00:00Z')), '2026-11-21')
   assert.equal(kstDate(new Date('2026-11-20T14:59:59Z')), '2026-11-20')
@@ -51,4 +51,11 @@ test('published results require publish mode, own blog URL, matching run, and wo
   assert.equal(isPublishedUrl('https://blog.naver.com/other/123', 'srluxury17'), false)
   assert.equal(isPublishedUrl('https://blog.naver.com/srluxury17/123', 'srluxury17'), true)
   assert.equal(validateResult({ ...job, mode: 'publish' }, { runId: 'correct', status: 'published', publishedUrl: 'https://blog.naver.com/srluxury17/123' }), 'published')
+})
+
+test('GEO paragraph citations cannot invent or use unselected article references', () => {
+  assert.deepEqual(sectionSourceIds([2, 2, 5], [2, 5]), [2, 5])
+  for (const value of [undefined, [], [1], ['2'], [2, 99], [2.5]]) {
+    assert.throws(() => sectionSourceIds(value, [2, 5]))
+  }
 })
