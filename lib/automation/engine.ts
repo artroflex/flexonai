@@ -9,15 +9,13 @@ import { isPublicLink, scheduledRunId, resolvePublishHours, blocksGeneration, DE
 import { renderNewsHtml } from './render'
 import { mergeNewsPools } from './newsSelection'
 import { bodyLengthAccepted, parseNewsDraft, resolveNewsImageCount, editorialPrompt, NEWS_GROUNDING_PROMPT, validateNewsQuotes, type NewsDraft } from './article'
-import { generateNewsImages } from './images'
+import { collectNewsPhotos } from './images'
 import { getSettings, listJobs, saveJob, withUserLock, writeObject } from './store'
 
 async function buildPost(userId: string, settings: AutomationSettings, job: AutomationJob, history: AutomationJob[]) {
   const db = createAdminClient()
   const key = await resolveApiKey(db, userId, settings.provider)
   if (!key) throw new Error('설정에서 선택한 AI의 API 키를 먼저 등록해 주세요.')
-  const imageKey = settings.provider === 'openai' ? key : await resolveApiKey(db, userId, 'openai')
-  if (!imageKey) throw new Error('뉴스 이미지 생성용 OpenAI API 키를 등록해 주세요.')
   const imageCount = resolveNewsImageCount(settings.imageCount)
   const queries = settings.topic === DEFAULT_NEWS_TOPIC ? NEWS_TOPIC_PRESETS.slice(1).map(preset => preset.topic) : [settings.topic]
   const pools = await Promise.all(queries.map(async query => {
@@ -58,10 +56,17 @@ async function buildPost(userId: string, settings: AutomationSettings, job: Auto
   const fingerprint = crypto.createHash('sha256').update(title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')).digest('hex')
   if (deliveredHistory.some(j => j.fingerprint === fingerprint)) { job.status = 'skipped'; job.error = '이미 생성한 주제입니다.'; return }
   job.title = title; job.fingerprint = fingerprint; job.sourceLinks = sources.map(a => a.link)
-  const images = await generateNewsImages(userId, job.id, imageKey, draft, imageCount)
+  const evidence = context.filter(a => ids.includes(a.id)).map(a => `${a.title} ${a.snippet}`).join(' ').normalize('NFC')
+  const photoQueries = draft.photoQueries.filter(query => evidence.includes(query))
+  if (!photoQueries.length) { job.status = 'skipped'; job.error = '자료에서 확인되는 인물·장소의 사진 검색어가 없어 발행을 보류합니다.'; return }
+  let photos
+  try { photos = await collectNewsPhotos(userId, job.id, photoQueries, imageCount) }
+  catch (error) { job.status = 'skipped'; job.error = error instanceof Error ? error.message : '허용된 실제 사진을 확보하지 못해 발행을 보류합니다.'; return }
+  const images = photos.map(photo => photo.url)
   if (images.length !== imageCount) throw new Error('설정한 이미지 수를 충족하지 못했습니다.')
   job.imageUrl = images[0]; job.imageUrls = images; job.bodyCharCount = draft.bodyChars
-  job.contentHtml = renderNewsHtml(draft, images, sources, SUBJECT_PRESETS.find(s => s.id === settings.subject)?.label ?? '연예뉴스')
+  job.imageRights = photos
+  job.contentHtml = renderNewsHtml(draft, images, sources, SUBJECT_PRESETS.find(s => s.id === settings.subject)?.label ?? '연예뉴스', photos)
   // Keep the existing post editor and archive useful for automated articles, too.
   const { data: post, error } = await db.from('blog_posts').insert({ user_id: userId, title, content: job.contentHtml, excerpt: intro.slice(0, 160), reading_minutes: Math.max(3, Math.ceil(draft.bodyChars / 500)) }).select('id').single()
   if (error || !post) throw new Error('생성한 글을 게시글 관리에 저장하지 못했습니다.')

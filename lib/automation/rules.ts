@@ -29,6 +29,7 @@ export interface AutomationJob {
   contentHtml: string
   imageUrl: string | null
   imageUrls?: string[]
+  imageRights?: import('./licensedPhotos').LicensedPhoto[]
   bodyCharCount?: number
   sourceLinks: string[]
   fingerprint: string
@@ -141,11 +142,10 @@ export function pcRecentlySeen(lastSeen: string | null, now = Date.now()): boole
   return Number.isFinite(timestamp) && timestamp <= now + 30000 && now - timestamp <= 180000
 }
 
-export function publishingBlockers(settings: AutomationSettings, keyRegistered: boolean, now = Date.now(), imageKeyRegistered = settings.provider === 'openai' && keyRegistered): string[] {
+export function publishingBlockers(settings: AutomationSettings, keyRegistered: boolean, now = Date.now(), _imageKeyRegistered = true): string[] {
   const blockers: string[] = []
   if (!/^[a-zA-Z0-9_-]{3,50}$/.test(settings.blogId) || !settings.category.trim()) blockers.push('내 네이버 블로그와 카테고리를 저장해 주세요.')
   if (!keyRegistered) blockers.push('선택한 AI의 API 키를 등록해 주세요.')
-  if (settings.provider !== 'openai' && !imageKeyRegistered) blockers.push('이미지 생성용 OpenAI API 키도 등록해 주세요.')
   if (!settings.tokenHash || !pcRecentlySeen(settings.workerLastSeenAt, now)) blockers.push('PC 크롬 연결 도구를 켜고 연결을 확인해 주세요.')
   if (!settings.verifiedDraftAt || settings.verifiedContentVersion !== 2 || settings.verifiedImageCount !== (settings.imageCount ?? 5)) blockers.push('본문 1,500~2,000자와 현재 이미지 수로 만든 임시저장 글 1건을 확인해 주세요.')
   return blockers

@@ -36,6 +36,10 @@ export async function POST(request: Request) {
         if (jobs.some(j => ['working', 'needs_review'].includes(j.status))) return privateJson({ task: null })
         const job = jobs.filter(j => j.status === 'queued').sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]
         if (!job) return privateJson({ task: null })
+        if (!job.imageRights?.length || job.imageRights.length !== job.imageUrls?.length) {
+          job.status = 'skipped'; job.error = '이전 이미지 방식으로 만든 대기 글입니다. 실제 사진 이용 근거가 없어 자동 전송하지 않습니다.'
+          await saveJob(userId, job); return privateJson({ task: null })
+        }
         if (job.contentHtml.includes('color:#C62828') && (!Array.isArray(input.capabilities) || !input.capabilities.includes('rich-text-v1'))) throw new Error('빨간 소제목·인용구 서식을 유지하려면 크롬 연결 도구 v1.2.0 이상으로 업데이트해 주세요.')
         if ((job.imageUrls?.length || 0) > 1 && (!Array.isArray(input.capabilities) || !input.capabilities.includes('interleaved-images-v1'))) throw new Error('이미지 여러 장을 전송하려면 최신 크롬 연결 도구 v1.1.0 이상으로 업데이트해 주세요.')
         // Pausing blocks pending scheduled work; manual draft connection tests remain available.

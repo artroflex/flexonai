@@ -71,7 +71,8 @@
           const inputs = Array.from(document.querySelectorAll('input[type="file"]')).filter(el => /image|png|jpg/i.test(el.accept))
           if (inputs.length !== 1) throw new Error('사진 업로드 입력란을 확인하지 못했습니다. 최신 연결 도구와 네이버 편집기를 확인해 주세요.')
           const bytes = Uint8Array.from(atob(payload.data), c => c.charCodeAt(0))
-          const transfer = new DataTransfer(); transfer.items.add(new File([bytes], `artro-news-${uploadedCount + 1}.png`, { type: 'image/png' }))
+          const mime = bytes[0] === 0xff && bytes[1] === 0xd8 ? 'image/jpeg' : 'image/png'
+          const transfer = new DataTransfer(); transfer.items.add(new File([bytes], `artro-news-${uploadedCount + 1}.${mime === 'image/jpeg' ? 'jpg' : 'png'}`, { type: mime }))
           inputs[0].files = transfer.files; inputs[0].dispatchEvent(new Event('change', { bubbles: true }))
           const loaded = await waitFor(() => {
             const nodes = Array.from(document.querySelectorAll('.se-component.se-image img')).filter(img => img.complete && img.naturalWidth > 0)

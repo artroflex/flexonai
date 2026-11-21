@@ -60,6 +60,7 @@ export async function POST(request: Request) {
         if (!job || job.status !== 'draft_saved' || job.blogId !== current.blogId || job.category !== current.category || !job.draftProof || body.confirmed !== true) throw new Error('현재 블로그·카테고리의 임시저장 글을 네이버에서 확인한 후 체크해 주세요.')
         const imageCount = current.imageCount ?? 5
         if (!bodyLengthAccepted(job.bodyCharCount ?? 0) || job.imageUrls?.length !== imageCount) throw new Error('이 글은 이전 작성 기준입니다. 본문 1,500~2,000자와 현재 이미지 수로 새 연결 시험 글을 만들어 확인해 주세요.')
+        if (job.imageRights?.length !== imageCount) throw new Error('이용 조건을 확인한 실제 사진으로 새 연결 시험 글을 만들어 주세요.')
         await saveSettings(userId, { ...current, verifiedDraftAt: new Date().toISOString(), verifiedImageCount: imageCount, verifiedContentVersion: 2 })
         return privateJson({ ok: true })
       }
