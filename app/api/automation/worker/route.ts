@@ -5,8 +5,10 @@ import { privateJson } from '@/utils/privateResponse'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { IS_STANDALONE } from '@/lib/deployment'
 import { checkProgramAccess } from '@/lib/access/checkProgramAccess'
+import { handleCommentAction } from '@/lib/automation/comments'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 export async function POST(request: Request) {
   try {
     const token = (request.headers.get('authorization') || '').replace(/^Bearer /, '')
@@ -24,8 +26,9 @@ export async function POST(request: Request) {
       const current = await getSettings(userId)
       // Token may have been revoked while this request was waiting.
       if (current.tokenHash !== hash) return privateJson({ error: '연결 코드가 변경됐습니다.' }, { status: 401 })
-      await saveSettings(userId, { ...current, workerLastSeenAt: new Date().toISOString() })
+      await saveSettings(userId, { ...current, workerLastSeenAt: new Date().toISOString(), workerCapabilities: Array.isArray(input.capabilities) ? input.capabilities.filter((c: unknown) => typeof c === 'string' && ['interleaved-images-v1', 'rich-text-v1', 'comment-replies-v1'].includes(c)) : [] })
       if (input.action === 'ping') return privateJson({ ok: true, blogId: current.blogId, category: current.category })
+      if (typeof input.action === 'string' && input.action.startsWith('comment_')) return privateJson(await handleCommentAction(userId, current, input))
       const jobs = await listJobs(userId)
       for (const job of jobs.filter(j => j.status === 'working' && Date.parse(j.leaseUntil || '') < Date.now())) {
         job.status = 'needs_review'; job.error = 'PC 연결이 끊겼습니다. 네이버 임시저장·발행 여부를 직접 확인해 주세요. 중복 방지를 위해 자동 재시도하지 않습니다.'

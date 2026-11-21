@@ -1,3 +1,4 @@
+import { parseCommentOptions, DEFAULT_COMMENTS, type CommentOptions } from './commentRules.ts'
 export type DeliveryMode = 'draft' | 'publish'
 export type JobStatus = 'generating' | 'queued' | 'working' | 'draft_saved' | 'published' | 'failed' | 'needs_review' | 'skipped'
 export interface AutomationSettings {
@@ -8,6 +9,7 @@ export interface AutomationSettings {
   subject?: string
   tone?: string
   publishHours?: number[]
+  comments?: CommentOptions
   provider: 'gemini' | 'openai' | 'anthropic'
   mode: DeliveryMode
   imageCount?: 4 | 5
@@ -16,6 +18,7 @@ export interface AutomationSettings {
   verifiedContentVersion?: 2
   tokenHash: string | null
   workerLastSeenAt: string | null
+  workerCapabilities?: string[]
 }
 export interface AutomationJob {
   id: string
@@ -72,7 +75,7 @@ export function scheduleLabel(hours?: number[]): string {
 }
 export const DEFAULT_SETTINGS: AutomationSettings = {
   enabled: false, blogId: '', category: '연예뉴스',
-  topic: DEFAULT_NEWS_TOPIC, subject: 'entertainment', tone: 'natural', publishHours: [7, 9, 19], provider: 'openai', mode: 'draft', imageCount: 5,
+  topic: DEFAULT_NEWS_TOPIC, subject: 'entertainment', tone: 'natural', publishHours: [7, 9, 19], comments: DEFAULT_COMMENTS, provider: 'openai', mode: 'draft', imageCount: 5,
   verifiedDraftAt: null, tokenHash: null, workerLastSeenAt: null,
 }
 export function parseSettings(input: unknown, previous: AutomationSettings): AutomationSettings {
@@ -86,6 +89,7 @@ export function parseSettings(input: unknown, previous: AutomationSettings): Aut
   const tone = String(v.tone ?? previous.tone ?? 'natural')
   if (!SUBJECT_PRESETS.some(s => s.id === subject) || !TONE_PRESETS.some(t => t.id === tone)) throw new Error('주제와 말투를 다시 선택해 주세요.')
   const publishHours = resolvePublishHours(v.publishHours ?? previous.publishHours)
+  const comments = parseCommentOptions(v.comments, previous.comments)
   if (!/^[a-zA-Z0-9_-]{3,50}$/.test(blogId) || !category || category.length > 80 || !topic || topic.length > 160) throw new Error('블로그 ID·카테고리·수집 주제를 확인해 주세요.')
   if (!['gemini', 'openai', 'anthropic'].includes(String(v.provider))) throw new Error('지원하지 않는 AI입니다.')
   const imageCount = v.imageCount ?? previous.imageCount ?? 5
@@ -93,7 +97,7 @@ export function parseSettings(input: unknown, previous: AutomationSettings): Aut
   const targetChanged = blogId !== previous.blogId || category !== previous.category || imageCount !== (previous.imageCount ?? 5)
   const verifiedDraftAt = targetChanged ? null : previous.verifiedDraftAt
   if (v.mode === 'publish' && !verifiedDraftAt) throw new Error('이 블로그·카테고리에서 임시저장을 확인한 뒤 자동 발행을 켤 수 있습니다.')
-  return { ...previous, enabled: v.enabled, blogId, category, topic, subject, tone, publishHours, provider: v.provider as AutomationSettings['provider'], mode: v.mode as DeliveryMode, imageCount, verifiedDraftAt, verifiedImageCount: targetChanged ? undefined : previous.verifiedImageCount, verifiedContentVersion: targetChanged ? undefined : previous.verifiedContentVersion }
+  return { ...previous, enabled: v.enabled, blogId, category, topic, subject, tone, publishHours, comments, provider: v.provider as AutomationSettings['provider'], mode: v.mode as DeliveryMode, imageCount, verifiedDraftAt, verifiedImageCount: targetChanged ? undefined : previous.verifiedImageCount, verifiedContentVersion: targetChanged ? undefined : previous.verifiedContentVersion }
 }
 export function kstDate(now = new Date()): string {
   return new Date(now.getTime() + 9 * 3600000).toISOString().slice(0, 10)

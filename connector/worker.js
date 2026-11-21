@@ -1,3 +1,4 @@
+import { pollComments } from './comment-worker.js'
 let polling = false
 const API_ORIGIN = 'https://artroblog.vercel.app'
 async function config() {
@@ -6,7 +7,7 @@ async function config() {
   return c
 }
 async function api(c, body) {
-  const res = await fetch(`${API_ORIGIN}/api/automation/worker`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.token}` }, body: JSON.stringify({ ...body, capabilities: ['interleaved-images-v1', 'rich-text-v1'] }), signal: AbortSignal.timeout(25000) })
+  const res = await fetch(`${API_ORIGIN}/api/automation/worker`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.token}` }, body: JSON.stringify({ ...body, capabilities: ['interleaved-images-v1', 'rich-text-v1', 'comment-replies-v1'] }), signal: AbortSignal.timeout(45000) })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || `서버 오류 ${res.status}`)
   return data
@@ -32,7 +33,7 @@ async function poll() {
     }
     if (!c.enabled) { await api(c, { action: 'ping' }); return { message: '연결됨 · 자동 처리 꺼짐' } }
     const { task } = await api(c, { action: 'claim', blogId: c.blogId })
-    if (!task) return { message: '처리할 대기 작업이 없습니다.' }
+    if (!task) { const result = await pollComments(c, api); await setStatus(result.message); return result }
     const active = { id: task.id, runId: task.runId }
     await chrome.storage.local.set({ active })
     await setStatus(`입력 시작: ${task.title}`)
@@ -91,6 +92,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (sender.id !== chrome.runtime.id || sender.tab) return false
   if (message.action === 'ping') { config().then(c => api(c, { action: 'ping' })).then(data => respond(data)).catch(e => respond({ ok: false, error: e.message })); return true }
   if (message.action === 'poll') { poll().then(respond); return true }
+  if (message.action === 'comments-retry') { chrome.storage.local.remove(['commentError', 'commentLastScan']).then(() => poll()).then(respond); return true }
   return false
 })
 ensureAlarm()

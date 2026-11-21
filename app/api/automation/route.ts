@@ -6,6 +6,7 @@ import { getSettings, getJob, listJobs, saveJob, saveSettings, withUserLock } fr
 import { parseSettings, publishingBlockers } from '@/lib/automation/rules'
 import { bodyLengthAccepted } from '@/lib/automation/article'
 import { createAdminClient } from '@/utils/supabase/admin'
+import { listReplies } from '@/lib/automation/comments'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -16,7 +17,7 @@ export async function GET() {
     const [settings, jobs, keys] = await Promise.all([getSettings(access.user.id), listJobs(access.user.id), createAdminClient().from('user_api_keys').select('provider').eq('user_id', access.user.id)])
     if (keys.error) throw new Error('API 키 등록 상태를 확인하지 못했습니다.')
     const { tokenHash, ...safe } = settings
-    return privateJson({ settings: { ...safe, connected: !!tokenHash }, jobs, configuredProviders: keys.data.map(key => key.provider) })
+    return privateJson({ settings: { ...safe, connected: !!tokenHash }, jobs, commentReplies: await listReplies(access.user.id), configuredProviders: keys.data.map(key => key.provider) })
   } catch { return privateJson({ error: '자동화 저장소를 준비하지 못했습니다. 운영 설정을 확인해 주세요.' }, { status: 503 }) }
 }
 export async function POST(request: Request) {

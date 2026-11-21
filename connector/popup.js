@@ -20,3 +20,5 @@ document.getElementById('poll').addEventListener('click', async () => {
   status.textContent = result.error || result.message || '확인했습니다.'
 })
 load()
+
+document.getElementById('commentsRetry').addEventListener('click', async () => { const result = await chrome.runtime.sendMessage({ action: 'comments-retry' }); status.textContent = result.error || result.message || '댓글 확인을 요청했습니다.' });
