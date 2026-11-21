@@ -96,7 +96,7 @@ export function parseSettings(input: unknown, previous: AutomationSettings): Aut
   if (imageCount !== 4 && imageCount !== 5) throw new Error('뉴스 이미지는 4장 또는 5장을 선택해 주세요.')
   const targetChanged = blogId !== previous.blogId || category !== previous.category || imageCount !== (previous.imageCount ?? 5)
   const verifiedDraftAt = targetChanged ? null : previous.verifiedDraftAt
-  if (v.mode === 'publish' && !verifiedDraftAt) throw new Error('이 블로그·카테고리에서 임시저장을 확인한 뒤 자동 발행을 켤 수 있습니다.')
+  if (v.enabled && v.mode === 'publish' && !verifiedDraftAt) throw new Error('이 블로그·카테고리에서 임시저장을 확인한 뒤 자동 발행을 켤 수 있습니다.')
   return { ...previous, enabled: v.enabled, blogId, category, topic, subject, tone, publishHours, comments, provider: v.provider as AutomationSettings['provider'], mode: v.mode as DeliveryMode, imageCount, verifiedDraftAt, verifiedImageCount: targetChanged ? undefined : previous.verifiedImageCount, verifiedContentVersion: targetChanged ? undefined : previous.verifiedContentVersion }
 }
 export function kstDate(now = new Date()): string {
@@ -110,6 +110,13 @@ export function scheduledRunId(slot: number, now = new Date()): string {
 }
 export function blocksGeneration(status: JobStatus, scheduled: boolean): boolean {
   return ['generating', 'working', 'needs_review'].includes(status) || (!scheduled && status === 'queued')
+}
+/** Drafts never upgrade to public posts when a preference changes. */
+export function queuedDeliveryMode(job: AutomationJob, settings: AutomationSettings): DeliveryMode {
+  return job.mode === 'publish' && settings.enabled && settings.mode === 'publish' &&
+    !!settings.verifiedDraftAt && settings.verifiedContentVersion === 2 &&
+    settings.verifiedImageCount === job.imageUrls?.length &&
+    job.blogId === settings.blogId && job.category === settings.category ? 'publish' : 'draft'
 }
 export function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!)
@@ -151,6 +158,6 @@ export function publishingBlockers(settings: AutomationSettings, keyRegistered: 
   if (!/^[a-zA-Z0-9_-]{3,50}$/.test(settings.blogId) || !settings.category.trim()) blockers.push('내 네이버 블로그와 카테고리를 저장해 주세요.')
   if (!keyRegistered) blockers.push('선택한 AI의 API 키를 등록해 주세요.')
   if (!settings.tokenHash || !pcRecentlySeen(settings.workerLastSeenAt, now)) blockers.push('PC 크롬 연결 도구를 켜고 연결을 확인해 주세요.')
-  if (!settings.verifiedDraftAt || settings.verifiedContentVersion !== 2 || settings.verifiedImageCount !== (settings.imageCount ?? 5)) blockers.push('본문 1,500~2,000자와 현재 이미지 수로 만든 임시저장 글 1건을 확인해 주세요.')
+  if (settings.mode === 'publish' && (!settings.verifiedDraftAt || settings.verifiedContentVersion !== 2 || settings.verifiedImageCount !== (settings.imageCount ?? 5))) blockers.push('자동발행을 시작하려면 본문 1,500~2,000자와 현재 이미지 수로 만든 임시저장 글 1건을 확인해 주세요.')
   return blockers
 }

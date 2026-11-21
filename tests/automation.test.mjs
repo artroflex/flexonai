@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { DEFAULT_SETTINGS, parseSettings, resolvePublishHours, scheduleLabel, SUBJECT_PRESETS, kstDate, escapeHtml, isPublicLink, isPublishedUrl, validateResult, scheduledRunId, DAILY_SLOTS, blocksGeneration, sectionSourceIds, pcRecentlySeen, publishingBlockers } from '../lib/automation/rules.ts'
+import { DEFAULT_SETTINGS, parseSettings, queuedDeliveryMode, resolvePublishHours, scheduleLabel, SUBJECT_PRESETS, kstDate, escapeHtml, isPublicLink, isPublishedUrl, validateResult, scheduledRunId, DAILY_SLOTS, blocksGeneration, sectionSourceIds, pcRecentlySeen, publishingBlockers } from '../lib/automation/rules.ts'
 test('KST daily slot crosses UTC date boundary correctly', () => {
   assert.equal(kstDate(new Date('2026-11-20T15:00:00Z')), '2026-11-21')
   assert.equal(kstDate(new Date('2026-11-20T14:59:59Z')), '2026-11-20')
@@ -48,10 +48,12 @@ test('offline PC may accumulate scheduled drafts, but uncertain results stop fur
   assert.equal(blocksGeneration('draft_saved', true), false)
 })
 test('cannot enable publishing without a verified draft; changing target revokes verification', () => {
-  assert.throws(() => parseSettings({ ...DEFAULT_SETTINGS, mode: 'publish' }, DEFAULT_SETTINGS))
+  assert.throws(() => parseSettings({ ...DEFAULT_SETTINGS, enabled: true, mode: 'publish' }, DEFAULT_SETTINGS))
+  const unverified = { ...DEFAULT_SETTINGS, blogId: 'my_blog' }
+  assert.equal(parseSettings({ ...unverified, mode: 'publish' }, unverified).mode, 'publish')
   const verified = { ...DEFAULT_SETTINGS, blogId: 'srluxury17', verifiedDraftAt: new Date().toISOString() }
   assert.equal(parseSettings({ ...verified, mode: 'publish' }, verified).mode, 'publish')
-  assert.throws(() => parseSettings({ ...verified, blogId: 'otherblog', mode: 'publish' }, verified))
+  assert.throws(() => parseSettings({ ...verified, enabled: true, blogId: 'otherblog', mode: 'publish' }, verified))
   assert.equal(parseSettings({ ...verified, category: '다른 카테고리' }, verified).verifiedDraftAt, null)
 })
 test('untrusted model output is escaped and non-public source links are rejected', () => {
@@ -80,7 +82,7 @@ test('GEO paragraph citations cannot invent or use unselected article references
 
 test('automatic publishing needs an own target, key, recent PC connection and verified draft', () => {
   const now = Date.parse('2026-11-21T10:00:00Z')
-  const ready = { ...DEFAULT_SETTINGS, blogId: 'my_own_blog', tokenHash: 'fixture', verifiedImageCount: 5, verifiedContentVersion: 2, workerLastSeenAt: new Date(now).toISOString(), verifiedDraftAt: new Date(now).toISOString() }
+  const ready = { ...DEFAULT_SETTINGS, mode: 'publish', blogId: 'my_own_blog', tokenHash: 'fixture', verifiedImageCount: 5, verifiedContentVersion: 2, workerLastSeenAt: new Date(now).toISOString(), verifiedDraftAt: new Date(now).toISOString() }
   assert.deepEqual(publishingBlockers(ready, true, now), [])
   assert.equal(publishingBlockers(ready, false, now).length, 1)
   assert.equal(publishingBlockers({ ...ready, tokenHash: null }, true, now).length, 1)
@@ -93,4 +95,17 @@ test('automatic publishing needs an own target, key, recent PC connection and ve
   assert.equal(pcRecentlySeen('invalid', now), false)
   assert.equal(pcRecentlySeen(new Date(now - 60000).toISOString(), now), true)
   assert.equal(DEFAULT_SETTINGS.blogId, '')
+})
+
+test('scheduled draft mode needs no previous draft proof and queued drafts never become public', () => {
+  const settings = { ...DEFAULT_SETTINGS, enabled: true, blogId: 'my_blog', tokenHash: 'fixture', workerLastSeenAt: new Date().toISOString() }
+  assert.deepEqual(publishingBlockers(settings, true), [])
+  assert.equal(parseSettings(settings, settings).mode, 'draft')
+  const job = { mode: 'publish', blogId: settings.blogId, category: settings.category, imageUrls: Array(5).fill('https://example.com/1.jpg') }
+  assert.equal(queuedDeliveryMode(job, settings), 'draft')
+  const verified = { ...settings, mode: 'publish', verifiedDraftAt: new Date().toISOString(), verifiedContentVersion: 2, verifiedImageCount: 5 }
+  assert.equal(queuedDeliveryMode(job, verified), 'publish')
+  assert.equal(queuedDeliveryMode({ ...job, mode: 'draft' }, verified), 'draft')
+  assert.equal(queuedDeliveryMode(job, { ...verified, enabled: false }), 'draft')
+  assert.equal(queuedDeliveryMode(job, { ...verified, verifiedDraftAt: null }), 'draft')
 })

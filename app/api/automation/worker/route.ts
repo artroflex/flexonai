@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { getSettings, listJobs, saveJob, saveSettings, withUserLock, getJob } from '@/lib/automation/store'
-import { validateResult } from '@/lib/automation/rules'
+import { validateResult, queuedDeliveryMode } from '@/lib/automation/rules'
 import { privateJson } from '@/utils/privateResponse'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { IS_STANDALONE } from '@/lib/deployment'
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         if (!current.enabled && job.id.startsWith('daily-')) return privateJson({ task: null })
         if (job.blogId !== current.blogId || job.category !== current.category) { job.status = 'needs_review'; job.error = '대기 중에 발행 대상 설정이 바뀌었습니다.'; await saveJob(userId, job); return privateJson({ task: null }) }
         // Switching publishing off also downgrades already queued work.
-        if (job.mode === 'publish' && (current.mode !== 'publish' || !current.verifiedDraftAt || current.verifiedContentVersion !== 2 || current.verifiedImageCount !== job.imageUrls?.length)) job.mode = 'draft'
+        job.mode = queuedDeliveryMode(job, current)
         job.status = 'working'; job.runId = crypto.randomUUID(); job.leaseUntil = new Date(Date.now() + 5 * 60000).toISOString()
         await saveJob(userId, job)
         return privateJson({ task: job })

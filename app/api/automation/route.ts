@@ -38,15 +38,21 @@ export async function POST(request: Request) {
         const blockers = publishingBlockers(current, !!keys?.some(key => key.provider === current.provider), Date.now(), !!keys?.some(key => key.provider === 'openai'))
         if (blockers.length) throw new Error(blockers.join(' '))
         if ((await listJobs(userId)).some(job => job.status === 'needs_review')) throw new Error('확인이 필요한 작업의 네이버 발행 여부를 먼저 확인해 주세요.')
-        await saveSettings(userId, parseSettings({ ...current, enabled: true, mode: 'publish' }, current))
+        await saveSettings(userId, parseSettings({ ...current, enabled: true }, current))
         return privateJson({ ok: true })
       }
       if (body.action === 'pause') {
-        await saveSettings(userId, { ...current, enabled: false, mode: 'draft' })
+        await saveSettings(userId, { ...current, enabled: false })
         return privateJson({ ok: true })
       }
       if (body.action === 'save') {
-        await saveSettings(userId, parseSettings(body.settings, current))
+        const next = parseSettings(body.settings, current)
+        await saveSettings(userId, next)
+        // Switching to drafts takes public queued work out of the publish path.
+        // Work already claimed by a PC must finish and be checked separately.
+        if (next.mode === 'draft') for (const job of await listJobs(userId)) {
+          if (job.status === 'queued' && job.mode === 'publish') { job.mode = 'draft'; await saveJob(userId, job) }
+        }
         return privateJson({ ok: true })
       }
       if (body.action === 'token') {
