@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:automation": "node --test tests/automation.test.mjs",
+    "test:automation": "node --test tests/automation.test.mjs tests/news-article.test.mjs tests/news-images.test.mjs",
     "test:connector": "node --test tests/connector.test.mjs",
     "setup:automation": "node scripts/setup-automation.mjs",
     "build:extension": "node scripts/build-extension-archive.mjs",

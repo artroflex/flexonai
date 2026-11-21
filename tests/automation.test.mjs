@@ -62,12 +62,14 @@ test('GEO paragraph citations cannot invent or use unselected article references
 
 test('automatic publishing needs an own target, key, recent PC connection and verified draft', () => {
   const now = Date.parse('2026-11-21T10:00:00Z')
-  const ready = { ...DEFAULT_SETTINGS, blogId: 'my_own_blog', tokenHash: 'fixture', workerLastSeenAt: new Date(now).toISOString(), verifiedDraftAt: new Date(now).toISOString() }
+  const ready = { ...DEFAULT_SETTINGS, blogId: 'my_own_blog', tokenHash: 'fixture', verifiedImageCount: 5, verifiedContentVersion: 2, workerLastSeenAt: new Date(now).toISOString(), verifiedDraftAt: new Date(now).toISOString() }
   assert.deepEqual(publishingBlockers(ready, true, now), [])
   assert.equal(publishingBlockers(ready, false, now).length, 1)
   assert.equal(publishingBlockers({ ...ready, tokenHash: null }, true, now).length, 1)
   assert.equal(publishingBlockers({ ...ready, verifiedDraftAt: null }, true, now).length, 1)
   assert.equal(publishingBlockers({ ...ready, blogId: '' }, true, now).length, 1)
+  assert.equal(publishingBlockers({ ...ready, verifiedContentVersion: undefined }, true, now).length, 1)
+  assert.equal(publishingBlockers({ ...ready, imageCount: 4 }, true, now).length, 1)
   assert.equal(pcRecentlySeen(new Date(now - 180001).toISOString(), now), false)
   assert.equal(pcRecentlySeen(new Date(now + 60000).toISOString(), now), false)
   assert.equal(pcRecentlySeen('invalid', now), false)

@@ -4,6 +4,7 @@ import { privateJson } from '@/utils/privateResponse'
 import { generateJob } from '@/lib/automation/engine'
 import { getSettings, getJob, listJobs, saveJob, saveSettings, withUserLock } from '@/lib/automation/store'
 import { parseSettings, publishingBlockers } from '@/lib/automation/rules'
+import { bodyLengthAccepted } from '@/lib/automation/article'
 import { createAdminClient } from '@/utils/supabase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -31,9 +32,9 @@ export async function POST(request: Request) {
     return await withUserLock(userId, async () => {
       const current = await getSettings(userId)
       if (body.action === 'start') {
-        const { data: key, error } = await createAdminClient().from('user_api_keys').select('provider').eq('user_id', userId).eq('provider', current.provider).maybeSingle()
+        const { data: keys, error } = await createAdminClient().from('user_api_keys').select('provider').eq('user_id', userId).in('provider', [current.provider, 'openai'])
         if (error) throw new Error('API 키 등록 상태를 확인하지 못했습니다.')
-        const blockers = publishingBlockers(current, !!key)
+        const blockers = publishingBlockers(current, !!keys?.some(key => key.provider === current.provider), Date.now(), !!keys?.some(key => key.provider === 'openai'))
         if (blockers.length) throw new Error(blockers.join(' '))
         if ((await listJobs(userId)).some(job => job.status === 'needs_review')) throw new Error('확인이 필요한 작업의 네이버 발행 여부를 먼저 확인해 주세요.')
         await saveSettings(userId, parseSettings({ ...current, enabled: true, mode: 'publish' }, current))
@@ -57,7 +58,9 @@ export async function POST(request: Request) {
       if (body.action === 'verify') {
         const job = await getJob(userId, String(body.id))
         if (!job || job.status !== 'draft_saved' || job.blogId !== current.blogId || job.category !== current.category || !job.draftProof || body.confirmed !== true) throw new Error('현재 블로그·카테고리의 임시저장 글을 네이버에서 확인한 후 체크해 주세요.')
-        await saveSettings(userId, { ...current, verifiedDraftAt: new Date().toISOString() })
+        const imageCount = current.imageCount ?? 5
+        if (!bodyLengthAccepted(job.bodyCharCount ?? 0) || job.imageUrls?.length !== imageCount) throw new Error('이 글은 이전 작성 기준입니다. 본문 1,500~2,000자와 현재 이미지 수로 새 연결 시험 글을 만들어 확인해 주세요.')
+        await saveSettings(userId, { ...current, verifiedDraftAt: new Date().toISOString(), verifiedImageCount: imageCount, verifiedContentVersion: 2 })
         return privateJson({ ok: true })
       }
       if (body.action === 'cancel') {

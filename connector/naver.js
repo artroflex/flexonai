@@ -29,23 +29,57 @@
       if (text(title) && text(title) !== '제목') throw new Error('기존 제목이 있어 입력하지 않았습니다.')
       if (text(body) && !/^(글 내용을 입력|여기에|내용을 입력)/.test(text(body))) throw new Error('기존 본문이 있어 입력하지 않았습니다.')
       if (document.querySelector('.se-component.se-image')) throw new Error('기존 이미지가 있어 입력하지 않았습니다.')
-      insert(title, task.title)
       const parsed = new DOMParser().parseFromString(task.contentHtml, 'text/html')
-      const paragraphs = Array.from(parsed.querySelectorAll('p,h2,figcaption')).map(el => {
+      const plannedImages = Array.from(parsed.querySelectorAll('img')).map(img => img.getAttribute('src'))
+      const images = typeof image === 'string' ? [{ url: plannedImages[0] || null, data: image }] : image || []
+      if (plannedImages.length && (images.length !== plannedImages.length || plannedImages.some(url => !images.some(img => img.url === url)))) throw new Error('본문 이미지가 모두 전달되지 않았습니다. 최신 연결 도구를 설치해 주세요.')
+      const flow = []
+      let lines = []
+      function flush() { if (lines.length) { flow.push({ type: 'text', value: lines.join('\n\n') }); lines = [] } }
+      for (const el of parsed.querySelectorAll('p,h2,figcaption,img')) {
+        if (el.tagName === 'IMG') { flush(); flow.push({ type: 'image', url: el.getAttribute('src') }); continue }
         const links = Array.from(el.querySelectorAll('a')).map(a => a.getAttribute('href')).filter(href => /^https:\/\//.test(href || ''))
-        return [el.textContent.trim(), ...links].filter(Boolean).join('\n')
-      }).filter(Boolean)
-      // Plain text is intentional: no untrusted HTML is executed by the editor.
-      insert(body, paragraphs.join('\n\n'))
-      await waitFor(() => text(titleNode()).includes(task.title) && document.body.innerText.includes(paragraphs[0]))
-      if (image) {
-        const inputs = Array.from(document.querySelectorAll('input[type="file"]')).filter(el => /image|png|jpg/i.test(el.accept))
-        if (inputs.length !== 1) throw new Error('사진 업로드 입력란을 확인하지 못했습니다. 텍스트는 입력했고, 표지는 플랫폼 미리보기에서 확인할 수 있습니다. 네이버에서 사진 추가 후 임시저장해 주세요.')
-        const bytes = Uint8Array.from(atob(image), c => c.charCodeAt(0))
-        const transfer = new DataTransfer(); transfer.items.add(new File([bytes], 'artro-news.png', { type: 'image/png' }))
-        inputs[0].files = transfer.files; inputs[0].dispatchEvent(new Event('change', { bubbles: true }))
-        await waitFor(() => Array.from(document.querySelectorAll('.se-component.se-image img')).some(img => img.complete && img.naturalWidth > 0), 25000)
+        const line = [el.textContent.trim(), ...links].filter(Boolean).join('\n')
+        if (line) lines.push(line)
       }
+      flush()
+      // Legacy one-image jobs without an HTML image node are still supported.
+      if (!plannedImages.length && images.length) flow.push({ type: 'image', url: images[0].url })
+      if (flow[0]?.type !== 'text') throw new Error('뉴스 본문은 텍스트 요약으로 시작해야 합니다.')
+      insert(title, task.title)
+      let textWritten = false, lastImage = null, uploadedCount = 0
+      for (const block of flow) {
+        if (block.type === 'text') {
+          if (!textWritten) { insert(body, block.value); textWritten = true }
+          else {
+            const paragraph = await waitFor(() => {
+              const list = Array.from(document.querySelectorAll('.se-component.se-text .se-text-paragraph, .se-text:not(.se-title-text) .se-text-paragraph'))
+              const last = list[list.length - 1]
+              return last && (!lastImage || (lastImage.compareDocumentPosition(last) & Node.DOCUMENT_POSITION_FOLLOWING)) ? last : null
+            })
+            paragraph.focus()
+            const selection = window.getSelection(), range = document.createRange()
+            range.selectNodeContents(paragraph); range.collapse(false); selection.removeAllRanges(); selection.addRange(range)
+            if (!document.execCommand('insertText', false, (text(paragraph) ? '\n\n' : '') + block.value)) throw new Error('이미지 뒤 본문을 입력하지 못했습니다.')
+            paragraph.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: block.value }))
+          }
+          await waitFor(() => document.body.innerText.includes(block.value.split('\n')[0]))
+        } else {
+          const payload = images.find(img => img.url === block.url)
+          if (!payload?.data) throw new Error('본문에 필요한 이미지가 없습니다.')
+          const inputs = Array.from(document.querySelectorAll('input[type="file"]')).filter(el => /image|png|jpg/i.test(el.accept))
+          if (inputs.length !== 1) throw new Error('사진 업로드 입력란을 확인하지 못했습니다. 최신 연결 도구와 네이버 편집기를 확인해 주세요.')
+          const bytes = Uint8Array.from(atob(payload.data), c => c.charCodeAt(0))
+          const transfer = new DataTransfer(); transfer.items.add(new File([bytes], `artro-news-${uploadedCount + 1}.png`, { type: 'image/png' }))
+          inputs[0].files = transfer.files; inputs[0].dispatchEvent(new Event('change', { bubbles: true }))
+          const loaded = await waitFor(() => {
+            const nodes = Array.from(document.querySelectorAll('.se-component.se-image img')).filter(img => img.complete && img.naturalWidth > 0)
+            return nodes.length === uploadedCount + 1 ? nodes : null
+          }, 25000)
+          lastImage = loaded[loaded.length - 1].closest('.se-component.se-image'); uploadedCount++
+        }
+      }
+      if (uploadedCount !== images.length || !text(titleNode()).includes(task.title)) throw new Error('제목 또는 전체 이미지 입력 결과를 확인하지 못했습니다.')
       const save = uniqueButton(/^(?:임시)?저장(?:\s*\d+)?$/)
       const before = document.body.innerText
       save.click()

@@ -7,7 +7,10 @@ export interface AutomationSettings {
   topic: string
   provider: 'gemini' | 'openai' | 'anthropic'
   mode: DeliveryMode
+  imageCount?: 4 | 5
   verifiedDraftAt: string | null
+  verifiedImageCount?: 4 | 5
+  verifiedContentVersion?: 2
   tokenHash: string | null
   workerLastSeenAt: string | null
 }
@@ -22,6 +25,8 @@ export interface AutomationJob {
   title: string
   contentHtml: string
   imageUrl: string | null
+  imageUrls?: string[]
+  bodyCharCount?: number
   sourceLinks: string[]
   fingerprint: string
   runId: string | null
@@ -32,7 +37,7 @@ export interface AutomationJob {
 }
 export const DEFAULT_SETTINGS: AutomationSettings = {
   enabled: false, blogId: '', category: '연예뉴스',
-  topic: '연예 (컴백 OR 신곡 OR 공연) (공식 OR 발표)', provider: 'openai', mode: 'draft',
+  topic: '연예 (컴백 OR 신곡 OR 공연) (공식 OR 발표)', provider: 'openai', mode: 'draft', imageCount: 5,
   verifiedDraftAt: null, tokenHash: null, workerLastSeenAt: null,
 }
 export function parseSettings(input: unknown, previous: AutomationSettings): AutomationSettings {
@@ -44,10 +49,12 @@ export function parseSettings(input: unknown, previous: AutomationSettings): Aut
   const topic = String(v.topic ?? '').trim()
   if (!/^[a-zA-Z0-9_-]{3,50}$/.test(blogId) || !category || category.length > 80 || !topic || topic.length > 160) throw new Error('블로그 ID·카테고리·수집 주제를 확인해 주세요.')
   if (!['gemini', 'openai', 'anthropic'].includes(String(v.provider))) throw new Error('지원하지 않는 AI입니다.')
-  const targetChanged = blogId !== previous.blogId || category !== previous.category
+  const imageCount = v.imageCount ?? previous.imageCount ?? 5
+  if (imageCount !== 4 && imageCount !== 5) throw new Error('뉴스 이미지는 4장 또는 5장을 선택해 주세요.')
+  const targetChanged = blogId !== previous.blogId || category !== previous.category || imageCount !== (previous.imageCount ?? 5)
   const verifiedDraftAt = targetChanged ? null : previous.verifiedDraftAt
   if (v.mode === 'publish' && !verifiedDraftAt) throw new Error('이 블로그·카테고리에서 임시저장을 확인한 뒤 자동 발행을 켤 수 있습니다.')
-  return { ...previous, enabled: v.enabled, blogId, category, topic, provider: v.provider as AutomationSettings['provider'], mode: v.mode as DeliveryMode, verifiedDraftAt }
+  return { ...previous, enabled: v.enabled, blogId, category, topic, provider: v.provider as AutomationSettings['provider'], mode: v.mode as DeliveryMode, imageCount, verifiedDraftAt, verifiedImageCount: targetChanged ? undefined : previous.verifiedImageCount, verifiedContentVersion: targetChanged ? undefined : previous.verifiedContentVersion }
 }
 export function kstDate(now = new Date()): string {
   return new Date(now.getTime() + 9 * 3600000).toISOString().slice(0, 10)
@@ -95,11 +102,12 @@ export function pcRecentlySeen(lastSeen: string | null, now = Date.now()): boole
   return Number.isFinite(timestamp) && timestamp <= now + 30000 && now - timestamp <= 180000
 }
 
-export function publishingBlockers(settings: AutomationSettings, keyRegistered: boolean, now = Date.now()): string[] {
+export function publishingBlockers(settings: AutomationSettings, keyRegistered: boolean, now = Date.now(), imageKeyRegistered = settings.provider === 'openai' && keyRegistered): string[] {
   const blockers: string[] = []
   if (!/^[a-zA-Z0-9_-]{3,50}$/.test(settings.blogId) || !settings.category.trim()) blockers.push('내 네이버 블로그와 카테고리를 저장해 주세요.')
   if (!keyRegistered) blockers.push('선택한 AI의 API 키를 등록해 주세요.')
+  if (settings.provider !== 'openai' && !imageKeyRegistered) blockers.push('이미지 생성용 OpenAI API 키도 등록해 주세요.')
   if (!settings.tokenHash || !pcRecentlySeen(settings.workerLastSeenAt, now)) blockers.push('PC 크롬 연결 도구를 켜고 연결을 확인해 주세요.')
-  if (!settings.verifiedDraftAt) blockers.push('네이버 임시저장 글 1건을 확인해 주세요.')
+  if (!settings.verifiedDraftAt || settings.verifiedContentVersion !== 2 || settings.verifiedImageCount !== (settings.imageCount ?? 5)) blockers.push('본문 1,500~2,000자와 현재 이미지 수로 만든 임시저장 글 1건을 확인해 주세요.')
   return blockers
 }

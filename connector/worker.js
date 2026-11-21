@@ -6,7 +6,7 @@ async function config() {
   return c
 }
 async function api(c, body) {
-  const res = await fetch(`${API_ORIGIN}/api/automation/worker`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.token}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(25000) })
+  const res = await fetch(`${API_ORIGIN}/api/automation/worker`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.token}` }, body: JSON.stringify({ ...body, capabilities: ['interleaved-images-v1'] }), signal: AbortSignal.timeout(25000) })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || `서버 오류 ${res.status}`)
   return data
@@ -49,16 +49,20 @@ async function poll() {
       const loaded = await chrome.tabs.get(tab.id)
       if (!loaded.url?.startsWith('https://blog.naver.com/')) throw new Error('네이버 로그인이 필요합니다. 로그인 후 새 테스트를 진행하세요.')
       await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ['naver.js'] })
-      let image = null
-      if (task.imageUrl) {
-        const url = new URL(task.imageUrl)
+      const imageUrls = task.imageUrls?.length ? task.imageUrls : task.imageUrl ? [task.imageUrl] : []
+      if (imageUrls.length > 5 || new Set(imageUrls).size !== imageUrls.length) throw new Error('이미지 목록을 확인하지 못했습니다.')
+      const images = []
+      let totalImageBytes = 0
+      for (const imageUrl of imageUrls) {
+        const url = new URL(imageUrl)
         if (!url.hostname.endsWith('.supabase.co') || !url.pathname.startsWith('/storage/v1/object/public/post-images/')) throw new Error('이미지 저장소 주소가 올바르지 않습니다.')
         const response = await fetch(url.href, { signal: AbortSignal.timeout(15000) })
-        if (!response.ok) throw new Error('표지 이미지를 내려받지 못했습니다.')
+        if (!response.ok) throw new Error('뉴스 이미지를 내려받지 못했습니다.')
         const bytes = new Uint8Array(await response.arrayBuffer())
-        if (bytes.length > 5 * 1024 * 1024) throw new Error('표지 이미지가 너무 큽니다.')
+        totalImageBytes += bytes.length
+        if (bytes.length > 5 * 1024 * 1024 || totalImageBytes > 20 * 1024 * 1024) throw new Error('뉴스 이미지 용량이 전송 한도를 넘었습니다.')
         let binary = ''; for (let i = 0; i < bytes.length; i += 16384) binary += String.fromCharCode(...bytes.subarray(i, i + 16384))
-        image = btoa(binary)
+        images.push({ url: imageUrl, data: btoa(binary) })
       }
       // Frame discovery is read-only; precisely one matching editor is required.
       const frames = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: () => !!globalThis.artroNaver?.isEditor() })
@@ -66,7 +70,7 @@ async function poll() {
       if (editors.length !== 1) throw new Error('네이버 편집기를 하나로 확인하지 못했습니다. 로그인·새 글쓰기 화면을 확인하세요.')
       const heartbeat = setInterval(() => { api(c, { action: 'heartbeat', ...active }).catch(() => {}) }, 30000)
       try {
-        const responses = await chrome.scripting.executeScript({ target: { tabId: tab.id, frameIds: [editors[0].frameId] }, func: async (task, image) => globalThis.artroNaver.run(task, image), args: [task, image] })
+        const responses = await chrome.scripting.executeScript({ target: { tabId: tab.id, frameIds: [editors[0].frameId] }, func: async (task, images) => globalThis.artroNaver.run(task, images), args: [task, images] })
         result = responses[0]?.result
         if (!result?.status) throw new Error('편집기에서 처리 결과를 반환하지 않았습니다.')
       } finally { clearInterval(heartbeat) }

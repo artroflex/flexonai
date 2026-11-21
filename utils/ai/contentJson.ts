@@ -21,12 +21,13 @@ export async function generateContentJson(params: {
   model: string
   system: string
   user: string
+  signal?: AbortSignal
 }): Promise<Record<string, unknown>> {
-  const { provider, apiKey, model, system, user } = params
+  const { provider, apiKey, model, system, user, signal } = params
 
   if (provider === 'anthropic') {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
+      method: 'POST', signal,
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       // 한국어 장문(공백 제외 2,000자 이상) + JSON이라 넉넉하게 잡는다.
       body: JSON.stringify({ model, max_tokens: 12000, system, messages: [{ role: 'user', content: user }] }),
@@ -42,7 +43,7 @@ export async function generateContentJson(params: {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
-        method: 'POST',
+        method: 'POST', signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: user }] }],
@@ -60,7 +61,7 @@ export async function generateContentJson(params: {
 
   // GPT-5 이상은 temperature를 기본값만 허용하므로 GPT-4 계열에만 지정한다.
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
+    method: 'POST', signal,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model,
@@ -78,7 +79,7 @@ export async function generateContentJson(params: {
     // (docs/AI_MODEL_INTEGRATION_STANDARD.md 3번 — 공식 지원 엔드포인트가 다를 수 있음).
     if (response.status === 400 || response.status === 404) {
       if (/v1\/responses|responses api|not supported|unsupported/i.test(body)) {
-        return generateOpenAIResponsesJson({ apiKey, model, system, user })
+        return generateOpenAIResponsesJson({ apiKey, model, system, user, signal })
       }
     }
     throw safeError('OpenAI', response.status, body)
@@ -89,9 +90,9 @@ export async function generateContentJson(params: {
   return extractJson(text)
 }
 
-async function generateOpenAIResponsesJson(params: { apiKey: string; model: string; system: string; user: string }) {
+async function generateOpenAIResponsesJson(params: { apiKey: string; model: string; system: string; user: string; signal?: AbortSignal }) {
   const response = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
+    method: 'POST', signal: params.signal,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${params.apiKey}` },
     body: JSON.stringify({
       model: params.model,

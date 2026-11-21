@@ -43,9 +43,9 @@ try {
   assert.equal((await request('/api/automation/worker', { action: 'ping' }, auth, false)).status, 200)
   assert.equal((await request('/api/automation/worker', { action: 'ping' }, { Authorization: `Bearer artro.${id}.${'a'.repeat(64)}` }, false)).status, 401)
   const now = new Date().toISOString()
-  const job = { id: 'qa-draft', createdAt: now, updatedAt: now, status: 'queued', mode: 'publish', blogId: settings.blogId, category: settings.category, title: '임시저장 연결 시험', contentHtml: '<p>자동화 흐름을 확인하는 테스트 글입니다.</p>', imageUrl: null, sourceLinks: [], fingerprint: '', runId: null, leaseUntil: null, draftProof: null, publishedUrl: null, error: null }
+  const job = { id: 'qa-draft', createdAt: now, updatedAt: now, status: 'queued', mode: 'publish', blogId: settings.blogId, category: settings.category, title: '임시저장 연결 시험', contentHtml: '<p>자동화 흐름을 확인하는 테스트 글입니다.</p>', imageUrl: null, bodyCharCount: 1750, imageUrls: Array.from({ length: 5 }, (_, i) => `https://example.invalid/fixture-${i}.png`), sourceLinks: [], fingerprint: '', runId: null, leaseUntil: null, draftProof: null, publishedUrl: null, error: null }
   const upload = await bucket.upload(`${id}/jobs/${job.id}.json`, JSON.stringify(job), { contentType: 'application/json' }); assert.equal(upload.error, null)
-  const claims = await Promise.all([request('/api/automation/worker', { action: 'claim', blogId: settings.blogId }, auth, false), request('/api/automation/worker', { action: 'claim', blogId: settings.blogId }, auth, false)])
+  const claims = await Promise.all([request('/api/automation/worker', { action: 'claim', blogId: settings.blogId, capabilities: ['interleaved-images-v1'] }, auth, false), request('/api/automation/worker', { action: 'claim', blogId: settings.blogId, capabilities: ['interleaved-images-v1'] }, auth, false)])
   const tasks = claims.filter(r => r.data.task).map(r => r.data.task); assert.equal(tasks.length, 1); assert.equal(tasks[0].mode, 'draft')
   const active = { id: job.id, runId: tasks[0].runId }
   assert.equal((await request('/api/automation/worker', { action: 'result', ...active, status: 'published', publishedUrl: `https://blog.naver.com/${settings.blogId}/123` }, auth, false)).status, 409)
@@ -53,6 +53,15 @@ try {
   const result = { action: 'result', ...active, status: 'draft_saved', draftProof: 'QA fixture: 임시저장 완료 확인' }
   assert.equal((await request('/api/automation/worker', result, auth, false)).status, 200)
   assert.equal((await request('/api/automation/worker', result, auth, false)).status, 200)
+  const multi = { ...job, id: 'qa-multi-images', status: 'queued', mode: 'draft', imageUrls: Array.from({ length: 5 }, (_, i) => `https://example.invalid/fixture-${i}.png`) }
+  assert.equal((await bucket.upload(`${id}/jobs/${multi.id}.json`, JSON.stringify(multi), { contentType: 'application/json' })).error, null)
+  const oldConnector = await request('/api/automation/worker', { action: 'claim', blogId: settings.blogId }, auth, false)
+  assert.equal(oldConnector.status, 409)
+  assert.match(oldConnector.data.error, /최신 크롬 연결 도구/)
+  const newConnector = await request('/api/automation/worker', { action: 'claim', blogId: settings.blogId, capabilities: ['interleaved-images-v1'] }, auth, false)
+  assert.equal(newConnector.data.task.id, multi.id)
+  assert.equal((await request('/api/automation/worker', { action: 'result', id: multi.id, runId: newConnector.data.task.runId, status: 'failed', error: 'Fixture verification complete; no Naver connection' }, auth, false)).status, 200)
+  assert.equal((await bucket.remove([`${id}/jobs/${multi.id}.json`])).error, null)
   assert.equal((await request('/api/automation', { action: 'verify', id: job.id, confirmed: true })).status, 200)
   const verified = (await request('/api/automation')).data.settings
   assert.equal((await request('/api/automation', { action: 'save', settings: { ...verified, mode: 'publish' } })).status, 200)
@@ -73,7 +82,7 @@ try {
   const paused = (await request('/api/automation')).data.settings
   assert.equal(paused.enabled, false)
   assert.equal(paused.mode, 'draft')
-  assert.equal((await request('/api/automation/worker', { action: 'claim', blogId: settings.blogId }, auth, false)).data.task, null)
+  assert.equal((await request('/api/automation/worker', { action: 'claim', blogId: settings.blogId, capabilities: ['interleaved-images-v1'] }, auth, false)).data.task, null)
   assert.equal((await bucket.remove([`${id}/jobs/${daily.id}.json`])).error, null)
   assert.equal((await db.from('user_api_keys').delete().eq('user_id', id).eq('provider', 'openai')).error, null)
   const generation = await request('/api/automation', { action: 'generate' })
