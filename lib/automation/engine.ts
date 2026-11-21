@@ -6,7 +6,7 @@ import { generateContentJson } from '@/utils/ai/contentJson'
 import { resolveContentModel } from '@/utils/ai/contentModels'
 import { resolveApiKey } from '@/utils/apiKeys'
 import { createAdminClient } from '@/utils/supabase/admin'
-import { escapeHtml, isPublicLink, kstDate, type AutomationJob, type AutomationSettings } from './rules'
+import { escapeHtml, isPublicLink, kstDate, scheduledRunId, blocksGeneration, type AutomationJob, type AutomationSettings } from './rules'
 import { getSettings, listJobs, saveJob, withUserLock, writeObject } from './store'
 
 async function newsCover(userId: string, id: string) {
@@ -65,14 +65,14 @@ async function buildPost(userId: string, settings: AutomationSettings, job: Auto
   if (categoryId) { const { error: mapError } = await db.from('blog_post_categories').insert({ post_id: post.id, category_id: categoryId }); if (mapError) throw new Error('게시글 카테고리 연결에 실패했습니다.') }
   job.status = 'queued'
 }
-export async function generateJob(userId: string, scheduled = false) {
+export async function generateJob(userId: string, scheduled = false, slot = 9) {
   return withUserLock(userId, async () => {
     const settings = await getSettings(userId)
     if (scheduled && !settings.enabled) return null
     const history = await listJobs(userId)
-    if (history.some(j => j.status === 'generating' || j.status === 'working' || j.status === 'queued')) throw new Error('진행 중인 작업이 있습니다. 먼저 결과를 확인해 주세요.')
-    // One automatic run per KST date. The marker survives failures, avoiding repeated API charges.
-    const id = scheduled ? `daily-${kstDate()}` : `test-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
+    if (history.some(j => blocksGeneration(j.status, scheduled))) throw new Error('진행 중이거나 확인이 필요한 작업이 있습니다. 먼저 결과를 확인해 주세요.')
+    // One run per KST date AND slot. Failed runs also retain their marker.
+    const id = scheduled ? scheduledRunId(slot) : `test-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
     await writeObject(`${userId}/runs/${id}.json`, { createdAt: new Date().toISOString() }, true)
     const now = new Date().toISOString()
     const job: AutomationJob = { id, createdAt: now, updatedAt: now, status: 'generating', mode: scheduled ? settings.mode : 'draft', blogId: settings.blogId, category: settings.category, title: '', contentHtml: '', imageUrl: null, sourceLinks: [], fingerprint: '', runId: null, leaseUntil: null, draftProof: null, publishedUrl: null, error: null }
