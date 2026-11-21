@@ -35,6 +35,7 @@ const FLOW_STEPS = [
 ];
 
 const UTILITY_ITEMS = [
+  { href: "/automation", icon: "⚡", label: "연예뉴스 자동화" },
   { href: "/settings", icon: "🔑", label: "API키등록·플랫폼연동" },
   { href: "/guide", icon: "📖", label: "연동 & 사용 매뉴얼" },
 ];

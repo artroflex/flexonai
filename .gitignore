@@ -19,6 +19,8 @@
 
 # production
 /build
+/artifacts/
+/public/downloads/artroblog-connector.zip
 
 # misc
 .DS_Store

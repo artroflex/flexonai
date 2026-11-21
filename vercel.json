@@ -1,6 +1,7 @@
 {
   "framework": "nextjs",
   "crons": [
+    { "path": "/api/cron/automation", "schedule": "0 0 * * *" },
     { "path": "/api/cron/cleanup-images", "schedule": "0 18 * * *" }
   ]
 }

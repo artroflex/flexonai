@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "artroBLOG 네이버 연결",
+  "version": "1.0.0",
+  "description": "artroBLOG 작업을 로그인된 네이버 블로그에 입력하고 임시저장 결과를 확인합니다.",
+  "permissions": ["storage", "alarms", "tabs", "scripting"],
+  "host_permissions": ["https://artroblog.vercel.app/*", "https://blog.naver.com/*", "https://*.supabase.co/*"],
+  "background": { "service_worker": "worker.js", "type": "module" },
+  "action": { "default_popup": "popup.html" }
+}
