@@ -7,7 +7,7 @@ const headingStyle = 'font-size:24px;font-weight:700;color:#C62828;line-height:1
 const smallStyle = 'font-size:11px;line-height:1.2;color:#777777;font-weight:400;margin:2px 0;'
 const bodyTextStyle = 'font-size:19px;color:#222222;font-weight:400;'
 export const paragraphGap = `<p data-mobile-gap="true" style="${bodyStyle}"><span style="${bodyTextStyle}">&nbsp;</span></p>`
-/** Keep words intact and leave space between blocks even when Naver drops margins. */
+/** Wrap within a sentence; blank paragraph gaps belong only after complete sentences. */
 export function mobileLines(text: string): string[] {
   const lines: string[] = []
   let line = ''
@@ -23,7 +23,7 @@ export function mobileParagraphs(text: string): string {
   const blocks: string[] = []
   for (const sentence of sentences) {
     const lines = mobileLines(sentence)
-    for (let i = 0; i < lines.length; i += 2) blocks.push(`<p style="${bodyStyle}">${lines.slice(i, i + 2).map(s => `<span style="${bodyTextStyle}">${escapeHtml(s)}</span>`).join('<br/>')}</p>${paragraphGap}`)
+    if (lines.length) blocks.push(`<p style="${bodyStyle}">${lines.map(s => `<span style="${bodyTextStyle}">${escapeHtml(s)}</span>`).join('<br/>')}</p>${paragraphGap}`)
   }
   return blocks.join('')
 }
